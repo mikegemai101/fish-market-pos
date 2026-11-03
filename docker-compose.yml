@@ -6,7 +6,7 @@ x-logging: &default-logging
 
 services:
   app:
-    image: ${APP_IMAGE:-mikegemai101/fish-market-pos:1.0.4}
+    image: ${APP_IMAGE:-mikegemai101/fish-market-pos:1.0.5}
     restart: unless-stopped
     read_only: true
     security_opt:

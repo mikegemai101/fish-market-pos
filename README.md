@@ -1,6 +1,6 @@
 # Fish Vendor POS
 
-Current version: **v1.0.4**. Releases use matching Git tags and Docker Hub tags.
+Current version: **v1.0.5**. Releases use matching Git tags and Docker Hub tags.
 
 A web point of sale app for fish vendors, with weight-based checkout, barcode scanning and printing, stock tracking, cashier and shop manager roles, sales dashboards, CSV/PDF reports, MariaDB, phpMyAdmin, and Caddy HTTPS.
 
@@ -82,7 +82,7 @@ Protect backup files like passwords: they contain business and possibly customer
 
 ## Accounts and access
 
-- **Admin:** full access to products, categories, inventory, users, dashboard, exports, and branding settings.
+- **Admin:** full access to products, categories, inventory, users, dashboard, exports, and branding settings. Admins can add stock and remove stock to correct an inventory mistake; removal cannot take stock below zero.
 - **Shop Manager:** view the dashboard; add and view fish and inventory; export overall sales or sales filtered by cashier.
 - **Cashier:** Point of Sale and limited Management access to view fish and inventory, print labels, and export their own sales. Cashiers cannot adjust stock, edit or remove products, manage categories or accounts, or view the dashboard. These permissions are enforced server-side.
 
