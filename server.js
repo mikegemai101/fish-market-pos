@@ -103,7 +103,9 @@ function auth(req, res, next) {
   catch { res.status(401).json({ error: 'Please sign in to continue.' }); }
 }
 const adminOnly = (req, res, next) => req.user?.role === 'admin' ? next() : res.status(403).json({ error: 'Admin access required.' });
-const adminOrCashier = (req,res,next) => ['admin','cashier'].includes(req.user?.role) ? next() : res.status(403).json({error:'Management access required.'});
+const adminOrManager = (req,res,next) => ['admin','shop_manager'].includes(req.user?.role) ? next() : res.status(403).json({error:'Admin or shop manager access required.'});
+const inventoryReader = (req,res,next) => ['admin','shop_manager','cashier'].includes(req.user?.role) ? next() : res.status(403).json({error:'Management access required.'});
+const adminOrCashier = (req,res,next) => ['admin','shop_manager','cashier'].includes(req.user?.role) ? next() : res.status(403).json({error:'Management access required.'});
 const asyncRoute = fn => (req, res, next) => Promise.resolve(fn(req, res, next)).catch(next);
 
 app.post('/api/login', asyncRoute(async (req, res) => {
@@ -142,8 +144,8 @@ app.delete('/api/categories/:id',auth,adminOnly,asyncRoute(async(req,res)=>{
 app.get('/api/fish', auth, asyncRoute(async (req,res) => {
   const { rows } = await pool.query('SELECT f.id,f.name,f.category_id,c.name AS category_name,f.price_per_kg,f.stock_kg,f.barcode,f.barcode_type,f.image_path,f.active,f.created_at FROM fish f LEFT JOIN categories c ON c.id=f.category_id WHERE f.active=true ORDER BY f.name'); res.json(rows);
 }));
-app.get('/api/inventory',auth,adminOnly,asyncRoute(async(req,res)=>{const {rows}=await pool.query('SELECT f.id,f.name,f.stock_kg,f.price_per_kg,c.name AS category_name FROM fish f LEFT JOIN categories c ON c.id=f.category_id WHERE f.active=true ORDER BY f.name');res.json(rows);}));
-app.patch('/api/inventory/:id',auth,adminOnly,asyncRoute(async(req,res)=>{const stock=Number(req.body.stock_kg);if(!Number.isFinite(stock)||stock<0||stock>1000000)return res.status(400).json({error:'Enter a valid inventory quantity from 0 to 1,000,000 kg.'});const {rows}=await pool.query('UPDATE fish SET stock_kg=$1 WHERE id=$2 AND active=true RETURNING id,name,stock_kg',[stock,req.params.id]);if(!rows[0])return res.status(404).json({error:'Active fish product not found.'});res.json(rows[0]);}));
+app.get('/api/inventory',auth,inventoryReader,asyncRoute(async(req,res)=>{const {rows}=await pool.query('SELECT f.id,f.name,f.stock_kg,f.price_per_kg,c.name AS category_name FROM fish f LEFT JOIN categories c ON c.id=f.category_id WHERE f.active=true ORDER BY f.name');res.json(rows);}));
+app.post('/api/inventory/:id/add',auth,adminOrManager,asyncRoute(async(req,res)=>{const kg=Number(req.body.kg);if(!Number.isFinite(kg)||kg<=0||kg>1000000)return res.status(400).json({error:'Enter an amount greater than 0 kg.'});const {rows}=await pool.query('UPDATE fish SET stock_kg=stock_kg+$1 WHERE id=$2 AND active=true RETURNING id,name,stock_kg',[kg,req.params.id]);if(!rows[0])return res.status(404).json({error:'Active fish product not found.'});res.json(rows[0]);}));
 app.get('/api/fish/barcode/:code', auth, asyncRoute(async (req,res) => {
   const { rows } = await pool.query('SELECT id,name,price_per_kg,barcode,image_path FROM fish WHERE barcode=$1 AND active=true',[req.params.code]);
   if (!rows[0]) return res.status(404).json({error:'No fish found for that barcode.'}); res.json(rows[0]);
@@ -201,13 +203,13 @@ app.post('/api/fish/barcodes/print',auth,adminOrCashier,asyncRoute(async(req,res
 app.get('/api/users',auth,adminOnly,asyncRoute(async(req,res)=>{const {rows}=await pool.query('SELECT id,username,role,active,created_at FROM users ORDER BY id');res.json(rows);}));
 app.post('/api/users',auth,adminOnly,asyncRoute(async(req,res)=>{
  const username=String(req.body.username||'').trim(),password=String(req.body.password||''),role=req.body.role;
- if(username.length<3||password.length<8||!['admin','cashier'].includes(role)) return res.status(400).json({error:'Username must have 3+ characters, password 8+, and role must be admin or cashier.'});
+ if(username.length<3||password.length<8||!['admin','cashier','shop_manager'].includes(role)) return res.status(400).json({error:'Username must have 3+ characters, password 8+, and role must be admin, shop manager, or cashier.'});
  try{const hash=await bcrypt.hash(password,12);const {rows}=await pool.query('INSERT INTO users(username,password_hash,role) VALUES($1,$2,$3) RETURNING id,username,role,active',[username,hash,role]);res.status(201).json(rows[0]);}
  catch(e){if(e.code==='ER_DUP_ENTRY') return res.status(409).json({error:'That username is already in use.'});throw e;}
 }));
 app.patch('/api/users/:id',auth,adminOnly,asyncRoute(async(req,res)=>{
  if(Number(req.params.id)===req.user.id && req.body.active===false) return res.status(400).json({error:'You cannot deactivate your own account.'});
- const {rows}=await pool.query('UPDATE users SET active=COALESCE($1,active), role=COALESCE($2,role) WHERE id=$3 RETURNING id,username,role,active',[req.body.active===undefined?null:!!req.body.active, ['admin','cashier'].includes(req.body.role)?req.body.role:null,req.params.id]); if(!rows[0]) return res.status(404).json({error:'User not found.'});res.json(rows[0]);
+ const {rows}=await pool.query('UPDATE users SET active=COALESCE($1,active), role=COALESCE($2,role) WHERE id=$3 RETURNING id,username,role,active',[req.body.active===undefined?null:!!req.body.active, ['admin','cashier','shop_manager'].includes(req.body.role)?req.body.role:null,req.params.id]); if(!rows[0]) return res.status(404).json({error:'User not found.'});res.json(rows[0]);
 }));
 app.delete('/api/users/:id',auth,adminOnly,asyncRoute(async(req,res)=>{
  const client=await pool.connect();
@@ -215,7 +217,7 @@ app.delete('/api/users/:id',auth,adminOnly,asyncRoute(async(req,res)=>{
   await client.query('BEGIN');
   const {rows}=await client.query('SELECT id,username,role FROM users WHERE id=$1',[req.params.id]);
   if(!rows[0]){await client.query('ROLLBACK');return res.status(404).json({error:'User not found.'});}
-  if(rows[0].role!=='cashier'){await client.query('ROLLBACK');return res.status(400).json({error:'Only cashier accounts can be removed here.'});}
+  if(rows[0].role==='admin'){await client.query('ROLLBACK');return res.status(400).json({error:'Admin accounts cannot be removed here.'});}
   await client.query('UPDATE sales SET cashier_name=COALESCE(cashier_name,$1), cashier_id=NULL WHERE cashier_id=$2',[rows[0].username,req.params.id]);
   await client.query('DELETE FROM users WHERE id=$1',[req.params.id]);
   await client.query('COMMIT');res.json({ok:true});
@@ -263,10 +265,12 @@ app.get('/api/dashboard',auth,adminOnly,asyncRoute(async(req,res)=>{
  const useHourly=start&&end&&(new Date(end.replace(' ','T')+'Z')-new Date(start.replace(' ','T')+'Z'))<=48*3600*1000;
  const bucket=useHourly?`DATE_FORMAT(s.created_at,'%Y-%m-%d %H:00')`:`DATE_FORMAT(s.created_at,'%Y-%m-%d')`;
  const trend=await pool.query(`SELECT ${bucket} AS label,COALESCE(SUM(i.line_total),0) AS revenue,COUNT(DISTINCT s.id) AS sale_count FROM sales s JOIN sale_items i ON i.sale_id=s.id LEFT JOIN fish f ON f.id=i.fish_id LEFT JOIN users u ON u.id=s.cashier_id ${all.where} GROUP BY label ORDER BY label`,all.values);
+ const trendByCategory=await pool.query(`SELECT DATE_FORMAT(s.created_at,'%Y-%m-%d') AS label,COALESCE(c.name,'Uncategorized') AS category,COALESCE(SUM(i.line_total),0) AS revenue FROM sales s JOIN sale_items i ON i.sale_id=s.id LEFT JOIN fish f ON f.id=i.fish_id LEFT JOIN categories c ON c.id=f.category_id LEFT JOIN users u ON u.id=s.cashier_id ${all.where} GROUP BY label,category ORDER BY label,category`,all.values);
  const categoryRows=await pool.query(`SELECT COALESCE(c.name,'Uncategorized') AS name,COALESCE(SUM(i.line_total),0) AS revenue FROM sales s JOIN sale_items i ON i.sale_id=s.id LEFT JOIN fish f ON f.id=i.fish_id LEFT JOIN categories c ON c.id=f.category_id LEFT JOIN users u ON u.id=s.cashier_id ${all.where} GROUP BY c.id,c.name ORDER BY revenue DESC`,all.values);
  const cashierRows=await pool.query(`SELECT COALESCE(s.cashier_name,u.username,'Removed cashier') AS name,COALESCE(SUM(i.line_total),0) AS revenue FROM sales s JOIN sale_items i ON i.sale_id=s.id LEFT JOIN fish f ON f.id=i.fish_id LEFT JOIN users u ON u.id=s.cashier_id ${all.where} GROUP BY name ORDER BY revenue DESC`,all.values);
+ const fishRows=await pool.query(`SELECT i.fish_name AS name,COALESCE(SUM(i.line_total),0) AS revenue FROM sales s JOIN sale_items i ON i.sale_id=s.id LEFT JOIN fish f ON f.id=i.fish_id LEFT JOIN users u ON u.id=s.cashier_id ${all.where} GROUP BY i.fish_name ORDER BY revenue DESC`,all.values);
  const recent=await pool.query(`SELECT s.id,MAX(s.created_at) AS created_at,COALESCE(s.cashier_name,u.username,'Removed cashier') AS cashier,COALESCE(SUM(i.line_total),0) AS filtered_total,COUNT(i.id) AS item_count FROM sales s JOIN sale_items i ON i.sale_id=s.id LEFT JOIN fish f ON f.id=i.fish_id LEFT JOIN users u ON u.id=s.cashier_id ${all.where} GROUP BY s.id,cashier ORDER BY created_at DESC LIMIT 50`,all.values);
- res.json({metrics:aggregate.rows[0],trend:trend.rows,categories:categoryRows.rows,cashiers:cashierRows.rows,recent:recent.rows,hourly:!!useHourly});
+ res.json({metrics:aggregate.rows[0],trend:trend.rows,trendByCategory:trendByCategory.rows,categories:categoryRows.rows,fishTypes:fishRows.rows,cashiers:cashierRows.rows,recent:recent.rows,hourly:!!useHourly});
 }));
 async function getSalesExportRows(query,user){
  const start=String(query.start||''),end=String(query.end||''),cashier=user.role==='cashier'?user.username:String(query.cashier||'').trim(),category=String(query.category||'');
@@ -276,8 +280,8 @@ async function getSalesExportRows(query,user){
  const clauses=[],values=[];const add=(sql,value)=>{values.push(value);clauses.push(sql.replace('?',`$${values.length}`));};
  if(start)add('s.created_at >= ?',start);if(end)add('s.created_at <= ?',end);if(cashier)add(`COALESCE(s.cashier_name,u.username,'Removed cashier') = ?`,cashier);
  if(category==='uncategorized')clauses.push('f.category_id IS NULL');else if(category)add('f.category_id = ?',Number(category));
- const {rows}=await pool.query(`SELECT s.id,s.created_at,COALESCE(s.cashier_name,u.username,'Removed cashier') AS cashier,s.payment_method,i.fish_name,i.weight_kg,i.price_per_kg,i.line_total FROM sales s JOIN sale_items i ON i.sale_id=s.id LEFT JOIN fish f ON f.id=i.fish_id LEFT JOIN users u ON u.id=s.cashier_id ${clauses.length?'WHERE '+clauses.join(' AND '):''} ORDER BY s.created_at DESC,s.id DESC,i.id`,values);
- const sales=[],byId=new Map();for(const row of rows){let sale=byId.get(row.id);if(!sale){sale={id:row.id,created_at:row.created_at,cashier:row.cashier,payment_method:row.payment_method,items:[],total:0};byId.set(row.id,sale);sales.push(sale)}const item={name:row.fish_name,weight:Number(row.weight_kg),price:Number(row.price_per_kg),lineTotal:Number(row.line_total)};sale.items.push(item);sale.total+=item.lineTotal;}for(const sale of sales)sale.total=Math.round(sale.total*100)/100;return sales;
+ const {rows}=await pool.query(`SELECT s.id,s.created_at,COALESCE(s.cashier_name,u.username,'Removed cashier') AS cashier,s.payment_method,i.fish_name,i.weight_kg,i.price_per_kg,i.line_total,COALESCE(c.name,'Uncategorized') AS category_name FROM sales s JOIN sale_items i ON i.sale_id=s.id LEFT JOIN fish f ON f.id=i.fish_id LEFT JOIN categories c ON c.id=f.category_id LEFT JOIN users u ON u.id=s.cashier_id ${clauses.length?'WHERE '+clauses.join(' AND '):''} ORDER BY s.created_at DESC,s.id DESC,i.id`,values);
+ const sales=[],byId=new Map();for(const row of rows){let sale=byId.get(row.id);if(!sale){sale={id:row.id,created_at:row.created_at,cashier:row.cashier,payment_method:row.payment_method,items:[],total:0};byId.set(row.id,sale);sales.push(sale)}const item={name:row.fish_name,category:row.category_name,weight:Number(row.weight_kg),price:Number(row.price_per_kg),lineTotal:Number(row.line_total)};sale.items.push(item);sale.total+=item.lineTotal;}for(const sale of sales)sale.total=Math.round(sale.total*100)/100;return sales;
 }
 app.get('/api/sales/export/options',auth,adminOrCashier,asyncRoute(async(req,res)=>{
  const categories=await pool.query('SELECT id,name FROM categories ORDER BY name');
@@ -302,7 +306,10 @@ app.get('/api/sales/export',auth,adminOrCashier,asyncRoute(async(req,res)=>{
  doc.font('Helvetica-Bold').fontSize(17).fillColor('#345b2c').text('My.Co Enterprises - Sales Export');doc.moveDown(.35);doc.font('Helvetica').fontSize(8).fillColor('#64705f').text(`Generated ${new Date().toLocaleString('en-PH',{timeZone:'Asia/Manila'})} (GMT+8) | ${sales.length} sales`);doc.moveDown(1);drawHeader();
  if(!sales.length){doc.fontSize(11).fillColor('#555').text('No sales match the selected filters.');}
  else for(const sale of sales){for(const item of sale.items){const date=new Date(sale.created_at).toLocaleString('en-PH',{timeZone:'Asia/Manila',dateStyle:'short',timeStyle:'short'});const values=[date,`#${sale.id}`,sale.cashier,item.name,`${item.weight.toFixed(3)} kg`,item.price.toFixed(2),item.lineTotal.toFixed(2),sale.total.toFixed(2)];doc.font('Helvetica').fontSize(7);const height=Math.max(20,...values.map((v,i)=>doc.heightOfString(String(v),{width:cols[i][1]-8})))+5;if(doc.y+height>doc.page.height-30){doc.addPage();drawHeader()}const y=doc.y;values.forEach((v,i)=>doc.text(String(v),columnX[i],y,{width:cols[i][1]-8,height:height-3,align:i>=4?'right':'left',ellipsis:true}));doc.y=y+height;doc.moveTo(30,doc.y).lineTo(columnCursor,doc.y).strokeColor('#edf0e9').stroke();}}
- doc.end();
+ const netSales=Math.round(sales.reduce((sum,sale)=>sum+sale.total,0)*100)/100,categoryTotals=new Map(),fishTotals=new Map();for(const sale of sales)for(const item of sale.items){categoryTotals.set(item.category,(categoryTotals.get(item.category)||0)+item.lineTotal);fishTotals.set(item.name,(fishTotals.get(item.name)||0)+item.lineTotal)}
+ doc.addPage({size:'A4',layout:'portrait',margin:42});doc.font('Helvetica-Bold').fontSize(20).fillColor('#345b2c').text('Sales summary');doc.moveDown(.4);doc.font('Helvetica').fontSize(10).fillColor('#64705f').text(`${sales.length} transactions`);doc.moveDown(.6);doc.roundedRect(42,doc.y,510,58,12).fill('#eff6e9');doc.font('Helvetica').fontSize(10).fillColor('#58734d').text('TOTAL NET SALES',60,doc.y+14);doc.font('Helvetica-Bold').fontSize(21).fillColor('#345b2c').text(`₱${netSales.toLocaleString('en-PH',{minimumFractionDigits:2,maximumFractionDigits:2})}`,350,doc.y-3,{width:180,align:'right'});doc.y+=75;
+ const drawBarGraph=(title,entries,color)=>{doc.font('Helvetica-Bold').fontSize(13).fillColor('#344b32').text(title);doc.moveDown(.35);const rows=[...entries.entries()].sort((a,b)=>b[1]-a[1]).slice(0,12),max=Math.max(1,...rows.map(x=>x[1]));if(!rows.length){doc.font('Helvetica').fontSize(9).fillColor('#71816c').text('No sales for this selection.');doc.moveDown(.8);return}for(const [label,value] of rows){if(doc.y>doc.page.height-65)doc.addPage({size:'A4',layout:'portrait',margin:42});const y=doc.y;doc.font('Helvetica').fontSize(8).fillColor('#465642').text(label,42,y,{width:150,ellipsis:true,lineBreak:false});doc.roundedRect(200,y+1,250,9,4).fill('#edf1e7');doc.roundedRect(200,y+1,Math.max(3,250*value/max),9,4).fill(color);doc.font('Helvetica-Bold').fontSize(8).fillColor('#465642').text(`₱${value.toLocaleString('en-PH',{minimumFractionDigits:2,maximumFractionDigits:2})}`,458,y,{width:95,align:'right',lineBreak:false});doc.y=y+20}doc.moveDown(.8)};
+ drawBarGraph('Sales by category',categoryTotals,'#eab94c');drawBarGraph('Sales by fish type',fishTotals,'#4f963f');doc.end();
 }));
 app.get('/api/health',asyncRoute(async(_,res)=>{await pool.query('SELECT 1');res.json({ok:true});}));
 app.use((err,req,res,next)=>{console.error(err); if(err instanceof multer.MulterError) return res.status(400).json({error:'Image upload failed. Images must be under 5 MB.'});res.status(err.status||500).json({error:err.status?err.message:'Something went wrong. Please try again.'});});

@@ -31,7 +31,8 @@ The script prompts for the new password without displaying it, hashes it, and up
 ## Access levels
 
 - **Admin:** manage product categories, fish and pricing, upload fish images, set inventory in kilograms, review low and empty stock, adjust stock, generate/print barcode labels in bulk by category or date added, manage users, change their own password, and review sales.
-- **Cashier:** checkout plus a limited Management tab to add fish, print labels, and export filtered sales as CSV or PDF. Cashiers cannot edit or remove products, manage categories or accounts, or open the admin dashboard. These permissions are enforced by the server.
+- **Shop Manager:** add and view fish products, add and view inventory, and export overall sales or sales filtered by cashier as CSV or PDF.
+- **Cashier:** Point of Sale plus a limited Management tab to add fish, view inventory, print labels, and export only their own sales as CSV or PDF. Cashiers cannot adjust stock, edit or remove products, manage categories or accounts, or open the admin dashboard. These permissions are enforced by the server.
 
 Fish inventory is tracked in kilograms. Enter starting stock when adding a fish; completed sales subtract the sold weight transactionally. Existing fish receive 0 kg when the inventory migration runs, so enter their current stock in Management → Inventory. Cashier passwords must be at least 8 characters. Fish images are limited to 5 MB. MariaDB data and uploaded images use persistent Docker volumes named `fish_data` and `fish_uploads`.
 
