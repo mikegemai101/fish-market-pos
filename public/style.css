@@ -237,3 +237,5 @@ body{font-size:16px}
 .scroll-bars{max-height:360px;overflow-y:auto;padding-right:7px;overscroll-behavior:contain;scrollbar-width:thin}.chart-legend{display:flex;flex-wrap:wrap;gap:9px 14px;margin:10px 20px;color:#65745d;font-size:10px}.chart-legend span{display:inline-flex;align-items:center;gap:5px}.chart-legend i{width:9px;height:9px;border-radius:50%;display:inline-block}
 
 .app-version{text-align:center;margin-top:12px;color:#8a9381;font-size:11px;font-weight:700;letter-spacing:.4px}
+
+.brand-settings-form{display:grid;grid-template-columns:minmax(220px,1fr) minmax(220px,1fr) auto auto;align-items:end;gap:14px}.brand-settings-form .field{margin:0}.brand-settings-preview{width:64px;height:64px;border-radius:12px;object-fit:contain;background:#f5f6ee;border:1px solid var(--line);padding:5px}.brand-settings-form .btn{white-space:nowrap}@media(max-width:800px){.brand-settings-form{grid-template-columns:1fr 1fr}.brand-settings-form .btn{grid-column:1/-1}}@media(max-width:520px){.brand-settings-form{grid-template-columns:1fr}.brand-settings-form .btn{grid-column:auto}}

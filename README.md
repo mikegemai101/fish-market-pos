@@ -1,6 +1,6 @@
 # Fish Vendor POS
 
-Current version: **v1.0.1**. Releases use matching Git tags and Docker Hub tags.
+Current version: **v1.0.2**. Releases use matching Git tags and Docker Hub tags.
 
 A small point of sale app for a fish counter. Cashiers can scan a barcode or select a fish, enter its weight in kilograms, and complete a sale. Admins manage fish names, categories, photos, per-kilogram pricing, barcode labels, inventory in kilograms, users, and recent sales. Cashiers can filter the checkout catalog by category while the sale basket stays in view. The header clock always uses GMT+8.
 
@@ -22,7 +22,7 @@ Caddy obtains public HTTPS certificates when the domain resolves to this server 
 
 The initial admin account is created when the database is first initialized. Set its credentials before first startup. Changing `ADMIN_PASSWORD` later does not reset an existing account. MariaDB's named volume is also initialized only once: changing DB passwords in `.env` after startup does not rotate credentials stored in the existing database.
 
-Admins can change their own password from Management → Admin account. If the admin password is forgotten, run this on the server from the project directory (replace `admin` with the admin username):
+Admins can change the brand name and upload a replacement logo from Management → Brand name and logo; the change applies to the login screen, site header, browser title, and tab icon. Admins can also change their own password from Management → Admin account. If the admin password is forgotten, run this on the server from the project directory (replace `admin` with the admin username):
 
 ```sh
 docker compose exec -it app node scripts/reset-admin-password.js admin

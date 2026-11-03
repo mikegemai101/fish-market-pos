@@ -76,12 +76,14 @@ async function generateBarcode(type) {
 async function init() {
   const schema = [
     `CREATE TABLE IF NOT EXISTS users (id INT AUTO_INCREMENT PRIMARY KEY, username VARCHAR(100) UNIQUE NOT NULL, password_hash VARCHAR(255) NOT NULL, role VARCHAR(20) NOT NULL, active TINYINT(1) NOT NULL DEFAULT 1, created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP) ENGINE=InnoDB`,
+    `CREATE TABLE IF NOT EXISTS app_settings (setting_key VARCHAR(50) PRIMARY KEY, setting_value TEXT NOT NULL) ENGINE=InnoDB`,
     `CREATE TABLE IF NOT EXISTS categories (id INT AUTO_INCREMENT PRIMARY KEY, name VARCHAR(100) UNIQUE NOT NULL, created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP) ENGINE=InnoDB`,
     `CREATE TABLE IF NOT EXISTS fish (id INT AUTO_INCREMENT PRIMARY KEY, name VARCHAR(160) NOT NULL, category_id INT NULL, price_per_kg DECIMAL(12,2) NOT NULL, stock_kg DECIMAL(12,3) NOT NULL DEFAULT 0, barcode VARCHAR(80) UNIQUE NOT NULL, image_path VARCHAR(500), active TINYINT(1) NOT NULL DEFAULT 1, created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP) ENGINE=InnoDB`,
     `CREATE TABLE IF NOT EXISTS sales (id INT AUTO_INCREMENT PRIMARY KEY, cashier_id INT, cashier_name VARCHAR(100), total DECIMAL(12,2) NOT NULL, payment_method VARCHAR(20) NOT NULL DEFAULT 'cash', created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP, FOREIGN KEY (cashier_id) REFERENCES users(id)) ENGINE=InnoDB`,
     `CREATE TABLE IF NOT EXISTS sale_items (id INT AUTO_INCREMENT PRIMARY KEY, sale_id INT NOT NULL, fish_id INT, fish_name VARCHAR(160) NOT NULL, weight_kg DECIMAL(10,3) NOT NULL, price_per_kg DECIMAL(12,2) NOT NULL, line_total DECIMAL(12,2) NOT NULL, FOREIGN KEY (sale_id) REFERENCES sales(id) ON DELETE CASCADE, FOREIGN KEY (fish_id) REFERENCES fish(id)) ENGINE=InnoDB`
   ];
   for (const statement of schema) await pool.query(statement);
+  await pool.query("INSERT IGNORE INTO app_settings(setting_key,setting_value) VALUES('brand_name','MY.CO ENTERPRISES')");
   await pool.query('ALTER TABLE fish ADD COLUMN IF NOT EXISTS category_id INT NULL');
   await pool.query('ALTER TABLE fish ADD COLUMN IF NOT EXISTS stock_kg DECIMAL(12,3) NOT NULL DEFAULT 0');
   await pool.query(`ALTER TABLE fish ADD COLUMN IF NOT EXISTS barcode_type VARCHAR(10) NOT NULL DEFAULT 'EAN-13'`);
@@ -117,6 +119,13 @@ app.post('/api/login', asyncRoute(async (req, res) => {
   res.json({ token: jwt.sign(user, JWT_SECRET, { expiresIn:'12h' }), user });
 }));
 app.get('/api/me', auth, (req,res) => res.json({ user:req.user }));
+app.get('/api/brand',asyncRoute(async(req,res)=>{const {rows}=await pool.query("SELECT setting_key,setting_value FROM app_settings WHERE setting_key IN ('brand_name','brand_logo')");const settings=Object.fromEntries(rows.map(x=>[x.setting_key,x.setting_value]));res.json({name:settings.brand_name||'MY.CO ENTERPRISES',logoUrl:settings.brand_logo||'/logo.jpg'});}));
+app.put('/api/brand',auth,adminOnly,upload.single('logo'),asyncRoute(async(req,res)=>{
+ const name=String(req.body.brand_name||'').trim();if(!name||name.length>100)return res.status(400).json({error:'Enter a brand name up to 100 characters.'});
+ await pool.query("INSERT INTO app_settings(setting_key,setting_value) VALUES('brand_name',$1) ON DUPLICATE KEY UPDATE setting_value=VALUES(setting_value)",[name]);
+ if(req.file)await pool.query("INSERT INTO app_settings(setting_key,setting_value) VALUES('brand_logo',$1) ON DUPLICATE KEY UPDATE setting_value=VALUES(setting_value)",[`/uploads/${req.file.filename}`]);
+ const {rows}=await pool.query("SELECT setting_key,setting_value FROM app_settings WHERE setting_key IN ('brand_name','brand_logo')");const settings=Object.fromEntries(rows.map(x=>[x.setting_key,x.setting_value]));res.json({name:settings.brand_name,logoUrl:settings.brand_logo||'/logo.jpg'});
+}));
 app.post('/api/me/password',auth,adminOnly,asyncRoute(async(req,res)=>{
  const current=String(req.body.current_password||''),next=String(req.body.new_password||'');
  if(next.length<8)return res.status(400).json({error:'New password must be at least 8 characters.'});
