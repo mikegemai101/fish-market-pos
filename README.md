@@ -57,7 +57,3 @@ git push origin v1.0.0
 ```
 
 The app service uses `mikegemai101/fish-market-pos:latest` from Docker Hub by default. Set `APP_IMAGE` in `.env` to select another tag. Pull updates with `docker compose pull app && docker compose up -d`.
-
-## Project prompt
-
-See [PROMPT.md](PROMPT.md) for the reusable project brief.
