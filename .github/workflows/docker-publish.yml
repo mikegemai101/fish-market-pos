@@ -1,4 +1,4 @@
-name: Publish Docker image
+name: Publish and deploy Docker image
 
 on:
   push:
@@ -12,9 +12,22 @@ permissions:
 jobs:
   docker:
     runs-on: ubuntu-latest
+    outputs:
+      image_tag: ${{ steps.version.outputs.image_tag }}
     steps:
       - name: Check out source
         uses: actions/checkout@v4
+      - name: Set image version
+        id: version
+        shell: bash
+        run: |
+          if [[ "$GITHUB_REF" == refs/tags/v* ]]; then
+            image_tag="${GITHUB_REF_NAME#v}"
+          else
+            package_version="$(node -p "require('./package.json').version")"
+            image_tag="${package_version}-build.${GITHUB_RUN_NUMBER}"
+          fi
+          echo "image_tag=$image_tag" >> "$GITHUB_OUTPUT"
       - name: Set up Docker Buildx
         uses: docker/setup-buildx-action@v3
       - name: Log in to Docker Hub
@@ -28,6 +41,7 @@ jobs:
         with:
           images: ${{ secrets.DOCKERHUB_USERNAME }}/fish-market-pos
           tags: |
+            type=raw,value=${{ steps.version.outputs.image_tag }}
             type=raw,value=latest,enable={{is_default_branch}}
             type=ref,event=tag
             type=sha,prefix=sha-
@@ -38,5 +52,53 @@ jobs:
           push: true
           tags: ${{ steps.meta.outputs.tags }}
           labels: ${{ steps.meta.outputs.labels }}
+          build-args: |
+            APP_VERSION=${{ steps.version.outputs.image_tag }}
           cache-from: type=gha
           cache-to: type=gha,mode=max
+
+  deploy:
+    name: Deploy app to VM
+    needs: docker
+    if: (github.ref == 'refs/heads/main' || startsWith(github.ref, 'refs/tags/v')) && vars.DEPLOY_HOST != ''
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    env:
+      DEPLOY_HOST: ${{ vars.DEPLOY_HOST }}
+      DEPLOY_USER: ${{ vars.DEPLOY_USER }}
+      DEPLOY_PATH: ${{ vars.DEPLOY_PATH }}
+      DEPLOY_PORT: ${{ vars.DEPLOY_PORT }}
+      DEPLOY_SSH_KEY: ${{ secrets.DEPLOY_SSH_KEY }}
+      DEPLOY_KNOWN_HOSTS: ${{ secrets.DEPLOY_KNOWN_HOSTS }}
+      APP_IMAGE: mikegemai101/fish-market-pos:${{ needs.docker.outputs.image_tag }}
+    steps:
+      - name: Validate deployment configuration
+        shell: bash
+        run: |
+          missing=()
+          for key in DEPLOY_USER DEPLOY_PATH DEPLOY_SSH_KEY DEPLOY_KNOWN_HOSTS; do
+            [[ -n "${!key}" ]] || missing+=("$key")
+          done
+          if (( ${#missing[@]} )); then
+            printf '::error::Missing deployment configuration: %s\n' "${missing[*]}"
+            exit 1
+          fi
+          if [[ "$DEPLOY_PATH" != /* || "$DEPLOY_PATH" =~ [^a-zA-Z0-9_./-] ]]; then
+            echo '::error::DEPLOY_PATH must be an absolute path containing only letters, numbers, dots, underscores, slashes, and hyphens.'
+            exit 1
+          fi
+      - name: Configure SSH
+        shell: bash
+        run: |
+          install -m 700 -d "$HOME/.ssh"
+          printf '%s\n' "$DEPLOY_SSH_KEY" > "$HOME/.ssh/deploy_key"
+          printf '%s\n' "$DEPLOY_KNOWN_HOSTS" > "$HOME/.ssh/known_hosts"
+          chmod 600 "$HOME/.ssh/deploy_key" "$HOME/.ssh/known_hosts"
+      - name: Pull and restart the app container
+        shell: bash
+        run: |
+          port="${DEPLOY_PORT:-22}"
+          remote_command="cd \"$DEPLOY_PATH\" && git pull --ff-only origin main && APP_IMAGE=\"$APP_IMAGE\" docker compose pull app && APP_IMAGE=\"$APP_IMAGE\" docker compose up -d --no-deps app"
+          ssh -i "$HOME/.ssh/deploy_key" -p "$port" \
+            -o BatchMode=yes -o IdentitiesOnly=yes -o StrictHostKeyChecking=yes \
+            "$DEPLOY_USER@$DEPLOY_HOST" "$remote_command"

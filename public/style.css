@@ -126,80 +126,12 @@ body{font-size:16px}
 .category-admin-row{display:flex;justify-content:space-between;align-items:center;gap:12px;padding:12px 4px;border-bottom:1px solid #eff0e6;font-size:14px}
 .category-admin-row:last-child{border-bottom:0}
 .category-admin-row>span{white-space:nowrap}
-.main:has(.pos-layout){height:calc(100dvh - 76px);display:flex;flex-direction:column;overflow:hidden}
-.main:has(.pos-layout) .page-head{flex:0 0 auto}
-.main:has(.pos-layout) .pos-layout{position:relative;flex:1 1 auto;min-height:0;align-items:stretch;overflow:hidden}
-.main:has(.pos-layout) .catalog{display:flex;flex-direction:column;min-height:0;overflow:hidden}
-.main:has(.pos-layout) .catalog-head{flex:0 0 auto}
-.main:has(.pos-layout) .category-tabs{flex:0 0 auto}
-.main:has(.pos-layout) .fish-grid{flex:1 1 auto;min-height:0;overflow-y:auto;align-content:start;padding:2px 6px 18px 1px;scrollbar-width:thin;overscroll-behavior:contain}
-.main:has(.pos-layout) .basket{position:absolute;top:0;right:0;width:min(365px,38vw);height:100%;min-height:0;max-height:100%;display:flex;flex-direction:column;overflow:hidden}
-.main:has(.pos-layout) .basket-top,.main:has(.pos-layout) .scan-row,.main:has(.pos-layout) .scan-hint,.main:has(.pos-layout) .total-row,.main:has(.pos-layout) .notice,.main:has(.pos-layout) #completeSale{flex:0 0 auto}
-.main:has(.pos-layout) .cart-lines{flex:1 1 auto;min-height:60px;max-height:none;overflow-y:auto;overscroll-behavior:contain}
-@media(min-width:801px) and (max-width:950px){
- .main:has(.pos-layout) .pos-layout{grid-template-columns:minmax(0,1fr) minmax(330px,38vw)}
-}
-@media(max-width:800px){
- .main:has(.pos-layout){height:calc(100dvh - 76px);min-height:0;overflow:hidden;display:flex}
- .main:has(.pos-layout) .pos-layout{display:block;position:relative;overflow:visible;min-height:0}
- .main:has(.pos-layout) .catalog{height:100%;padding-bottom:20px}
- .main:has(.pos-layout) .fish-grid{padding-bottom:calc(min(48dvh,420px) + 24px)}
- .main:has(.pos-layout) .basket{position:fixed;z-index:8;left:12px;right:12px;bottom:10px;top:auto;width:auto;height:min(48dvh,420px);min-height:300px;max-height:calc(100dvh - 100px);box-shadow:0 12px 40px #263b2550}
- .main:has(.pos-layout) .cart-lines{min-height:35px}
-}
 @media(max-width:480px){
  .category-tabs{gap:7px;padding-bottom:11px}
  .category-tab{font-size:12px;padding:9px 13px}
- .main:has(.pos-layout) .basket{left:8px;right:8px;bottom:8px;padding:14px;height:min(51dvh,410px);min-height:290px}
- .main:has(.pos-layout) .basket-top{padding-bottom:9px}
- .main:has(.pos-layout) .scan-row{margin:9px 0}
- .main:has(.pos-layout) .scan-hint{font-size:10px}
- .main:has(.pos-layout) .notice{margin:8px 0;padding:8px;font-size:11px}
  .category-admin-row{font-size:13px}
 }
-/* POS catalog: cap the product grid at four rows and scroll the overflow. */
-.main:has(.pos-layout) .fish-grid{grid-template-columns:repeat(3,minmax(0,1fr));max-height:calc((145px + 100px + 2px)*4 + 16px*3);overflow-y:auto;overscroll-behavior:contain;scrollbar-width:thin}
-.main:has(.pos-layout) .fish-card{min-width:0}
-.main:has(.pos-layout) .fish-info{display:flex;flex-direction:column;align-items:flex-start;gap:7px;padding:14px;min-height:100px}
-.main:has(.pos-layout) .fish-name{display:block;color:var(--ink);font-size:16px;font-weight:800;line-height:1.4;white-space:normal;overflow-wrap:anywhere;word-break:normal;margin:0}
-.main:has(.pos-layout) .fish-price{font-size:14px;line-height:1.4;white-space:normal;margin:0}
-@media(min-width:651px) and (max-width:1100px){
- .main:has(.pos-layout) .fish-grid{grid-template-columns:repeat(2,minmax(0,1fr))}
-}
-@media(max-width:800px){
- .main:has(.pos-layout){height:calc(100dvh - 76px);}
- .main:has(.pos-layout) .pos-layout{display:flex;flex:1 1 auto;flex-direction:column;height:0}
- .main:has(.pos-layout) .catalog{flex:1 1 auto;height:auto;min-height:0}
- .main:has(.pos-layout) .fish-grid{grid-template-columns:repeat(2,minmax(0,1fr));gap:10px;max-height:calc((clamp(70px,22vw,110px) + 100px + 2px)*4 + 10px*3)}
- .main:has(.pos-layout) .fish-thumb{height:clamp(70px,22vw,110px)}
- .main:has(.pos-layout) .fish-info{padding:11px;min-height:94px}
- .main:has(.pos-layout) .fish-name{font-size:15px;line-height:1.35}
- .main:has(.pos-layout) .fish-price{font-size:13px;line-height:1.4;padding:5px 7px;white-space:normal}
- .main:has(.pos-layout) .basket{position:absolute;z-index:8;left:12px;right:12px;bottom:10px;top:auto;width:auto;height:min(48dvh,420px);min-height:260px;max-height:calc(100dvh - 100px)}
-}
-@media(max-width:650px){
- .main:has(.pos-layout){height:calc(100dvh - 112px);padding:16px 12px}
- .main:has(.pos-layout) .page-head{margin-bottom:12px}
- .main:has(.pos-layout) .page-head h1{font-size:25px}
- .main:has(.pos-layout) .page-head p{font-size:12px}
- .main:has(.pos-layout) .catalog{padding:12px}
- .main:has(.pos-layout) .catalog-head{flex-direction:row;align-items:center;gap:8px;margin-bottom:10px}
- .main:has(.pos-layout) .catalog-head h2{font-size:16px;white-space:nowrap}
- .main:has(.pos-layout) .search{width:min(48%,220px);padding:9px;font-size:12px}
- .main:has(.pos-layout) .fish-grid{grid-template-columns:minmax(0,1fr)}
- .main:has(.pos-layout) .fish-grid{max-height:calc(100px*4 + 10px*3 + min(48dvh,390px) + 18px);padding-bottom:calc(min(48dvh,390px) + 18px)}
- .main:has(.pos-layout) .fish-card{display:grid;grid-template-columns:100px minmax(0,1fr);align-items:stretch}
- .main:has(.pos-layout) .fish-thumb{height:100%;min-height:100px}
- .main:has(.pos-layout) .fish-info{justify-content:center;min-height:100px;padding:12px 14px}
- .main:has(.pos-layout) .fish-name{font-size:16px}
- .main:has(.pos-layout) .fish-price{font-size:14px}
- .main:has(.pos-layout) .basket{left:8px;right:8px;bottom:8px;height:min(48dvh,390px);min-height:240px;padding:12px}
-}
 @media(max-width:380px){
- .main:has(.pos-layout) .fish-grid{gap:8px}
- .main:has(.pos-layout) .fish-card{grid-template-columns:84px minmax(0,1fr)}
- .main:has(.pos-layout) .fish-thumb{min-height:88px}
- .main:has(.pos-layout) .fish-info{padding:10px;min-height:88px}
  .main:has(.pos-layout) .category-tab{padding:8px 10px}
 }
 .fish-panel-head{align-items:flex-start;gap:16px;flex-wrap:wrap}
@@ -287,3 +219,39 @@ body{font-size:16px}
 .app-version{text-align:center;margin-top:12px;color:#8a9381;font-size:11px;font-weight:700;letter-spacing:.4px}
 
 .brand-settings-form{display:grid;grid-template-columns:minmax(220px,1fr) minmax(220px,1fr) auto auto;align-items:end;gap:14px}.brand-settings-form .field{margin:0}.brand-settings-preview{width:64px;height:64px;border-radius:12px;object-fit:contain;background:#f5f6ee;border:1px solid var(--line);padding:5px}.brand-settings-form .btn{white-space:nowrap}@media(max-width:800px){.brand-settings-form{grid-template-columns:1fr 1fr}.brand-settings-form .btn{grid-column:1/-1}}@media(max-width:520px){.brand-settings-form{grid-template-columns:1fr}.brand-settings-form .btn{grid-column:auto}}
+
+/* POS: give the catalog a tall scroll area and keep checkout in view. */
+.main:has(.pos-layout){height:auto;min-height:calc(100dvh - 76px);display:block;overflow:visible}
+.main:has(.pos-layout) .pos-layout{position:static;display:grid;grid-template-columns:minmax(0,1fr) 365px;gap:20px;align-items:start;min-height:0;overflow:visible}
+.main:has(.pos-layout) .catalog{display:block;height:calc(100dvh - 160px);min-height:500px;max-height:calc(100dvh - 110px);overflow-y:auto;overscroll-behavior:contain;scrollbar-width:thin}
+.main:has(.pos-layout) .fish-grid{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:16px;max-height:none;overflow:visible;align-content:start;padding:2px 6px 18px 1px}
+.main:has(.pos-layout) .fish-card{min-width:0}
+.main:has(.pos-layout) .fish-info{display:flex;flex-direction:column;align-items:flex-start;gap:7px;padding:14px;min-height:100px}
+.main:has(.pos-layout) .fish-name{display:block;color:var(--ink);font-size:16px;font-weight:800;line-height:1.4;white-space:normal;overflow-wrap:anywhere;word-break:normal;margin:0}
+.main:has(.pos-layout) .basket{position:sticky;top:88px;right:auto;width:auto;height:calc(100dvh - 110px);min-height:0;max-height:calc(100dvh - 100px);display:flex;flex-direction:column;overflow:hidden;align-self:start}
+.main:has(.pos-layout) .basket-top,.main:has(.pos-layout) .scan-row,.main:has(.pos-layout) .scan-hint,.main:has(.pos-layout) .total-row,.main:has(.pos-layout) .notice,.main:has(.pos-layout) #completeSale{flex:0 0 auto}
+.main:has(.pos-layout) .cart-lines{flex:1 1 auto;min-height:60px;max-height:none;overflow-y:auto;overscroll-behavior:contain}
+@media(min-width:651px) and (max-width:1100px){
+ .main:has(.pos-layout) .pos-layout{grid-template-columns:minmax(0,1fr) minmax(300px,34vw)}
+ .main:has(.pos-layout) .fish-grid{grid-template-columns:repeat(2,minmax(0,1fr));gap:12px}
+}
+@media(max-width:800px){
+ .main:has(.pos-layout){padding:20px 12px}
+ .main:has(.pos-layout) .pos-layout{display:flex;flex-direction:column;gap:16px}
+ .main:has(.pos-layout) .catalog{height:auto;min-height:0;max-height:none;overflow:visible;padding-bottom:calc(min(48dvh,390px) + 24px)}
+ .main:has(.pos-layout) .fish-grid{grid-template-columns:repeat(2,minmax(0,1fr));gap:10px;overflow:visible}
+ .main:has(.pos-layout) .basket{position:fixed;z-index:8;top:auto;left:12px;right:12px;bottom:10px;width:auto;height:min(48dvh,420px);min-height:240px;max-height:calc(100dvh - 100px);box-shadow:0 12px 40px #263b2550}
+}
+@media(max-width:650px){
+ .main:has(.pos-layout) .fish-grid{grid-template-columns:minmax(0,1fr)}
+ .main:has(.pos-layout) .fish-card{display:grid;grid-template-columns:100px minmax(0,1fr);align-items:stretch}
+ .main:has(.pos-layout) .fish-thumb{height:100%;min-height:100px}
+ .main:has(.pos-layout) .fish-info{justify-content:center;min-height:100px;padding:12px 14px}
+ .main:has(.pos-layout) .basket{left:8px;right:8px;bottom:8px;height:min(48dvh,390px);padding:12px}
+}
+@media(max-width:380px){
+ .main:has(.pos-layout) .fish-grid{gap:8px}
+ .main:has(.pos-layout) .fish-card{grid-template-columns:84px minmax(0,1fr)}
+ .main:has(.pos-layout) .fish-thumb{min-height:88px}
+ .main:has(.pos-layout) .fish-info{min-height:88px;padding:10px}
+}

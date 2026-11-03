@@ -1,6 +1,6 @@
 # Fish Vendor POS
 
-Current version: **v1.0.6**. Releases use matching Git tags and Docker Hub tags.
+Current version: **v1.0.7**. Releases use matching Git tags and Docker Hub tags.
 
 A web point of sale app for fish vendors, with weight-based checkout, barcode scanning and printing, stock tracking, cashier and shop manager roles, sales dashboards, CSV/PDF reports, MariaDB, phpMyAdmin, and Caddy HTTPS.
 
@@ -41,6 +41,22 @@ Caddy obtains and renews HTTPS certificates automatically after DNS resolves to 
 
 The app container runs read-only except for its persistent uploads volume. MariaDB has no public port. Caddy's certificate data, MariaDB data, and uploaded images are stored in named Docker volumes and survive container replacement.
 
+### Automatic deployments
+
+Pushes to `main` publish `latest` and a unique image tag in the form `1.0.7-build.<run-number>`. The workflow deploys that exact tag to the VM when deployment settings are configured. Add these GitHub Actions repository variables:
+
+- `DEPLOY_HOST`: VM hostname or IP address.
+- `DEPLOY_USER`: SSH user with permission to run Docker Compose.
+- `DEPLOY_PATH`: absolute path to the deployed project directory containing `docker-compose.yml` and `.env`.
+- `DEPLOY_PORT`: SSH port; optional, defaults to `22`.
+
+Add these GitHub Actions repository secrets:
+
+- `DEPLOY_SSH_KEY`: private SSH key for the deployment user.
+- `DEPLOY_KNOWN_HOSTS`: verified SSH host key entry for the VM (use `[host]:port` for a non-default port).
+
+After publishing the image, the workflow fast-forwards the project checkout, pulls the exact versioned image, and recreates only the app container. The database, uploads, and other services stay running.
+
 ### phpMyAdmin access
 
 phpMyAdmin is bound to the VM's loopback interface only. Use an SSH tunnel from your computer:
@@ -53,7 +69,7 @@ Keep that SSH session open and visit `http://127.0.0.1:8080` locally. Sign in wi
 
 ### Updating the app
 
-Review the release notes, change `APP_IMAGE` in `.env` to the desired versioned Docker Hub tag, then run:
+To update manually, change `APP_IMAGE` in `.env` to the desired Docker Hub tag, then run:
 
 ```sh
 docker compose pull app
