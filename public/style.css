@@ -235,3 +235,5 @@ body{font-size:16px}
 @media(max-width:390px){.topbar .brand{font-size:11px}.topbar .brand-logo{width:31px;height:31px}.header-clock #headerClock{font-size:8px}.user-chip>span:not(.avatar){display:none}.topbar>.btn{font-size:11px;padding:7px}}
 
 .scroll-bars{max-height:360px;overflow-y:auto;padding-right:7px;overscroll-behavior:contain;scrollbar-width:thin}.chart-legend{display:flex;flex-wrap:wrap;gap:9px 14px;margin:10px 20px;color:#65745d;font-size:10px}.chart-legend span{display:inline-flex;align-items:center;gap:5px}.chart-legend i{width:9px;height:9px;border-radius:50%;display:inline-block}
+
+.app-version{text-align:center;margin-top:12px;color:#8a9381;font-size:11px;font-weight:700;letter-spacing:.4px}

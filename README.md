@@ -1,5 +1,7 @@
 # My.Co Enterprises — Fish Vendor POS
 
+Current version: **v1.0.1**. Releases use matching Git tags and Docker Hub tags.
+
 A small point of sale app for a fish counter. Cashiers can scan a barcode or select a fish, enter its weight in kilograms, and complete a sale. Admins manage fish names, categories, photos, per-kilogram pricing, barcode labels, inventory in kilograms, users, and recent sales. Cashiers can filter the checkout catalog by category while the sale basket stays in view. The header clock always uses GMT+8.
 
 ## Run with Docker Compose

@@ -244,7 +244,7 @@ app.get('/api/sales',auth,adminOnly,asyncRoute(async(req,res)=>{
 }));
 app.get('/api/dashboard/options',auth,adminOrManager,asyncRoute(async(req,res)=>{
  const categories=await pool.query('SELECT id,name FROM categories ORDER BY name');
- const cashiers=await pool.query(`SELECT DISTINCT COALESCE(s.cashier_name,u.username,'Removed cashier') AS name FROM sales s LEFT JOIN users u ON u.id=s.cashier_id ORDER BY name`);
+ const cashiers=await pool.query(`SELECT MIN(TRIM(COALESCE(NULLIF(s.cashier_name,''),u.username,'Removed cashier'))) AS name FROM sales s LEFT JOIN users u ON u.id=s.cashier_id GROUP BY LOWER(TRIM(COALESCE(NULLIF(s.cashier_name,''),u.username,'Removed cashier'))) ORDER BY name`);
  res.json({categories:categories.rows,cashiers:cashiers.rows.map(r=>r.name)});
 }));
 app.get('/api/dashboard',auth,adminOrManager,asyncRoute(async(req,res)=>{
@@ -255,7 +255,7 @@ app.get('/api/dashboard',auth,adminOrManager,asyncRoute(async(req,res)=>{
  const scope=(includeCategory=true,includeCashier=true)=>{
   const clauses=[],values=[];const add=(template,value)=>{values.push(value);clauses.push(template.replace('?',`$${values.length}`));};
   if(start)add('s.created_at >= ?',start);if(end)add('s.created_at <= ?',end);
-  if(includeCashier&&cashier)add(`COALESCE(s.cashier_name,u.username,'Removed cashier') = ?`,cashier);
+  if(includeCashier&&cashier)add(`LOWER(TRIM(COALESCE(NULLIF(s.cashier_name,''),u.username,'Removed cashier'))) = LOWER(TRIM(?))`,cashier);
   if(includeCategory&&category==='uncategorized')clauses.push('f.category_id IS NULL');
   else if(includeCategory&&category)add('f.category_id = ?',Number(category));
   return {where:clauses.length?'WHERE '+clauses.join(' AND '):'',values};
@@ -267,7 +267,7 @@ app.get('/api/dashboard',auth,adminOrManager,asyncRoute(async(req,res)=>{
  const trend=await pool.query(`SELECT ${bucket} AS label,COALESCE(SUM(i.line_total),0) AS revenue,COUNT(DISTINCT s.id) AS sale_count FROM sales s JOIN sale_items i ON i.sale_id=s.id LEFT JOIN fish f ON f.id=i.fish_id LEFT JOIN users u ON u.id=s.cashier_id ${all.where} GROUP BY label ORDER BY label`,all.values);
  const trendByCategory=await pool.query(`SELECT DATE_FORMAT(s.created_at,'%Y-%m-%d') AS label,COALESCE(c.name,'Uncategorized') AS category,COALESCE(SUM(i.line_total),0) AS revenue FROM sales s JOIN sale_items i ON i.sale_id=s.id LEFT JOIN fish f ON f.id=i.fish_id LEFT JOIN categories c ON c.id=f.category_id LEFT JOIN users u ON u.id=s.cashier_id ${all.where} GROUP BY label,category ORDER BY label,category`,all.values);
  const categoryRows=await pool.query(`SELECT COALESCE(c.name,'Uncategorized') AS name,COALESCE(SUM(i.line_total),0) AS revenue FROM sales s JOIN sale_items i ON i.sale_id=s.id LEFT JOIN fish f ON f.id=i.fish_id LEFT JOIN categories c ON c.id=f.category_id LEFT JOIN users u ON u.id=s.cashier_id ${all.where} GROUP BY c.id,c.name ORDER BY revenue DESC`,all.values);
- const cashierRows=await pool.query(`SELECT COALESCE(s.cashier_name,u.username,'Removed cashier') AS name,COALESCE(SUM(i.line_total),0) AS revenue FROM sales s JOIN sale_items i ON i.sale_id=s.id LEFT JOIN fish f ON f.id=i.fish_id LEFT JOIN users u ON u.id=s.cashier_id ${all.where} GROUP BY name ORDER BY revenue DESC`,all.values);
+ const cashierRows=await pool.query(`SELECT MIN(TRIM(COALESCE(NULLIF(s.cashier_name,''),u.username,'Removed cashier'))) AS name,COALESCE(SUM(i.line_total),0) AS revenue FROM sales s JOIN sale_items i ON i.sale_id=s.id LEFT JOIN fish f ON f.id=i.fish_id LEFT JOIN users u ON u.id=s.cashier_id ${all.where} GROUP BY LOWER(TRIM(COALESCE(NULLIF(s.cashier_name,''),u.username,'Removed cashier'))) ORDER BY revenue DESC`,all.values);
  const fishRows=await pool.query(`SELECT i.fish_name AS name,COALESCE(SUM(i.line_total),0) AS revenue FROM sales s JOIN sale_items i ON i.sale_id=s.id LEFT JOIN fish f ON f.id=i.fish_id LEFT JOIN users u ON u.id=s.cashier_id ${all.where} GROUP BY i.fish_name ORDER BY revenue DESC`,all.values);
  const recent=await pool.query(`SELECT s.id,MAX(s.created_at) AS created_at,COALESCE(s.cashier_name,u.username,'Removed cashier') AS cashier,COALESCE(SUM(i.line_total),0) AS filtered_total,COUNT(i.id) AS item_count FROM sales s JOIN sale_items i ON i.sale_id=s.id LEFT JOIN fish f ON f.id=i.fish_id LEFT JOIN users u ON u.id=s.cashier_id ${all.where} GROUP BY s.id,cashier ORDER BY created_at DESC LIMIT 50`,all.values);
  res.json({metrics:aggregate.rows[0],trend:trend.rows,trendByCategory:trendByCategory.rows,categories:categoryRows.rows,fishTypes:fishRows.rows,cashiers:cashierRows.rows,recent:recent.rows,hourly:!!useHourly});
@@ -285,7 +285,7 @@ async function getSalesExportRows(query,user){
 }
 app.get('/api/sales/export/options',auth,adminOrCashier,asyncRoute(async(req,res)=>{
  const categories=await pool.query('SELECT id,name FROM categories ORDER BY name');
- const cashiers=req.user.role==='cashier'?{rows:[{name:req.user.username}]}:await pool.query(`SELECT DISTINCT COALESCE(s.cashier_name,u.username,'Removed cashier') AS name FROM sales s LEFT JOIN users u ON u.id=s.cashier_id ORDER BY name`);
+ const cashiers=req.user.role==='cashier'?{rows:[{name:req.user.username}]}:await pool.query(`SELECT MIN(TRIM(COALESCE(NULLIF(s.cashier_name,''),u.username,'Removed cashier'))) AS name FROM sales s LEFT JOIN users u ON u.id=s.cashier_id GROUP BY LOWER(TRIM(COALESCE(NULLIF(s.cashier_name,''),u.username,'Removed cashier'))) ORDER BY name`);
  res.json({categories:categories.rows,cashiers:cashiers.rows.map(x=>x.name)});
 }));
 app.get('/api/sales/export',auth,adminOrCashier,asyncRoute(async(req,res)=>{
