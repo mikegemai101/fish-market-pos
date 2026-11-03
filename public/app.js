@@ -1,4 +1,4 @@
-const APP_VERSION='v1.0.2';
+const APP_VERSION='v1.0.3';
 const root=document.querySelector('#app');
 const state={brand:{name:'MY.CO ENTERPRISES',logoUrl:'/logo.jpg'},token:localStorage.getItem('fishpos_token'),user:JSON.parse(localStorage.getItem('fishpos_user')||'null'),fish:[],categories:[],activeCategory:'all',cart:[],tab:'pos',clockTimer:null};
 const money=n=>new Intl.NumberFormat('en-PH',{style:'currency',currency:'PHP'}).format(Number(n)||0);

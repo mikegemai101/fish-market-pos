@@ -1,13 +1,14 @@
-{$DOMAIN:localhost} {
-  encode gzip zstd
+{$DOMAIN} {
+	encode gzip zstd
 
-  handle_path /phpmyadmin/* {
-    reverse_proxy phpmyadmin:80
-  }
-  handle /phpmyadmin {
-    redir /phpmyadmin/ 308
-  }
-  handle {
-    reverse_proxy app:3000
-  }
+	header {
+		X-Content-Type-Options nosniff
+		Referrer-Policy strict-origin-when-cross-origin
+		X-Frame-Options DENY
+		-Server
+	}
+
+	handle {
+		reverse_proxy app:3000
+	}
 }

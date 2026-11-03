@@ -1,59 +1,105 @@
 # Fish Vendor POS
 
-Current version: **v1.0.2**. Releases use matching Git tags and Docker Hub tags.
+Current version: **v1.0.3**. Releases use matching Git tags and Docker Hub tags.
 
-A small point of sale app for a fish counter. Cashiers can scan a barcode or select a fish, enter its weight in kilograms, and complete a sale. Admins manage fish names, categories, photos, per-kilogram pricing, barcode labels, inventory in kilograms, users, and recent sales. Cashiers can filter the checkout catalog by category while the sale basket stays in view. The header clock always uses GMT+8.
+A web point of sale app for fish vendors, with weight-based checkout, barcode scanning and printing, stock tracking, cashier and shop manager roles, sales dashboards, CSV/PDF reports, MariaDB, phpMyAdmin, and Caddy HTTPS.
 
-## Run with Docker Compose
+## Cloud VM deployment
 
-1. Copy `.env.example` to `.env` and replace every placeholder with strong, unique values. Keep `.env` private; it is excluded from Git and the Docker build context.
-2. Set `DOMAIN` to a hostname that points to this server. For local-only use, set `DOMAIN=localhost`.
-3. Start the services:
+### 1. Prepare the VM and DNS
 
-   ```sh
-   docker compose pull app
-   docker compose up -d
-   ```
+- Install Docker Engine and the Docker Compose plugin using the instructions for your VM's Linux distribution.
+- Assign a stable public IP to the VM. Create an `A` record for the POS hostname pointing to that IP. If you publish an `AAAA` record, it must point to this VM too; otherwise remove it.
+- In the cloud firewall and VM firewall, allow inbound SSH from trusted IPs, TCP ports **80** and **443**, and UDP port **443**. Do not open MariaDB port 3306 or phpMyAdmin port 8080 publicly.
+- Install this repository in a stable directory on the VM. Keep using that same directory and Compose project name so Docker keeps using the same named data volumes.
 
-4. Open `https://your-domain` to use the POS and `https://your-domain/phpmyadmin/` to administer MariaDB. Sign in to phpMyAdmin with `DB_USER` and `DB_PASSWORD` from `.env` for the app database, or with `root` and `DB_ROOT_PASSWORD` for full database administration.
-5. Sign in to the POS with `ADMIN_USERNAME` and `ADMIN_PASSWORD` from `.env`.
+### 2. Configure secrets
 
-Caddy obtains public HTTPS certificates when the domain resolves to this server and ports 80/443 are reachable. Its local certificate for `localhost` may require trusting Caddy's local CA in your browser. MariaDB and phpMyAdmin do not publish host ports; both are reached through the internal Docker network and phpMyAdmin is reverse proxied by Caddy.
+Copy the example and edit it:
 
-The initial admin account is created when the database is first initialized. Set its credentials before first startup. Changing `ADMIN_PASSWORD` later does not reset an existing account. MariaDB's named volume is also initialized only once: changing DB passwords in `.env` after startup does not rotate credentials stored in the existing database.
+```sh
+cp .env.example .env
+nano .env
+chmod 600 .env
+```
 
-Admins can change the brand name and upload a replacement logo from Management → Brand name and logo; the change applies to the login screen, site header, browser title, and tab icon. Admins can also change their own password from Management → Admin account. If the admin password is forgotten, run this on the server from the project directory (replace `admin` with the admin username):
+Set `DOMAIN` to the real DNS hostname. Generate separate random values for `DB_PASSWORD`, `DB_ROOT_PASSWORD`, and `JWT_SECRET` by running `openssl rand -hex 32` three times. Generate a separate admin password with at least 12 characters. `JWT_SECRET` must be at least 32 characters; the app refuses to start without it, and the first admin account cannot be created with a password under 12 characters. Keep `.env` private and do not commit it.
+
+`ADMIN_PASSWORD` is only used to create the first admin account when the database is empty. Changing it later does not change an existing user's password. After first startup, admins can change their password in Management. Use the documented password reset script if it is forgotten.
+
+### 3. Start the stack
+
+Run these commands from the project directory:
+
+```sh
+docker compose pull
+docker compose up -d
+docker compose ps
+```
+
+Caddy obtains and renews HTTPS certificates automatically after DNS resolves to the VM and inbound ports 80 and 443 are reachable. Allow a short time for the first certificate. Open `https://your-domain` for the POS.
+
+The app container runs read-only except for its persistent uploads volume. MariaDB has no public port. Caddy's certificate data, MariaDB data, and uploaded images are stored in named Docker volumes and survive container replacement.
+
+### phpMyAdmin access
+
+phpMyAdmin is bound to the VM's loopback interface only. Use an SSH tunnel from your computer:
+
+```sh
+ssh -L 8080:127.0.0.1:8080 your-vm-user@your-domain
+```
+
+Keep that SSH session open and visit `http://127.0.0.1:8080` locally. Sign in with `DB_USER` and `DB_PASSWORD` for routine access; use the database root account only when administrative privileges are needed. The phpMyAdmin port is intentionally not exposed through Caddy or the public firewall.
+
+### Updating the app
+
+Review the release notes, change `APP_IMAGE` in `.env` to the desired versioned Docker Hub tag, then run:
+
+```sh
+docker compose pull app
+docker compose up -d app
+```
+
+Keep the `fish_data`, `fish_uploads`, `caddy_data`, and `caddy_config` volumes. Do not use `docker compose down -v` for routine updates; `-v` deletes the persistent database, uploaded logo/product images, and Caddy certificate data.
+
+### Backups
+
+Back up MariaDB and uploaded images regularly and copy the backups off the VM. Run from the project directory:
+
+```sh
+docker compose exec -T db sh -c 'mariadb-dump --single-transaction -uroot -p"$MARIADB_ROOT_PASSWORD" "$MARIADB_DATABASE"' > fishpos-database.sql
+docker compose exec -T app tar -czf - -C /app/uploads . > fishpos-uploads.tar.gz
+```
+
+Protect backup files like passwords: they contain business and possibly customer data. Test restoring backups before relying on them.
+
+### Troubleshooting
+
+- `docker compose ps` shows service state and health. Inspect startup logs with `docker compose logs --tail=100 app db caddy`.
+- If HTTPS does not start, verify the DNS `A`/`AAAA` records and cloud/VM firewall access to ports 80 and 443.
+- If the POS cannot connect to MariaDB, confirm the `.env` database values have not changed after the `fish_data` volume was initialized. Updating `.env` does not rotate credentials in an existing database volume.
+- Existing products start with 0 kg when inventory is first migrated. Enter their current stock in Management → Inventory before selling them.
+
+## Accounts and access
+
+- **Admin:** full access to products, categories, inventory, users, dashboard, exports, and branding settings.
+- **Shop Manager:** view the dashboard; add and view fish and inventory; export overall sales or sales filtered by cashier.
+- **Cashier:** Point of Sale and limited Management access to add fish, view inventory, print labels, and export their own sales. Cashiers cannot adjust stock, edit or remove products, manage categories or accounts, or view the dashboard. These permissions are enforced server-side.
+
+Fish inventory uses kilograms. Each completed sale deducts sold weight transactionally. Fish images are limited to 5 MB. Brand settings, database data, and uploaded images are persisted in Docker volumes.
+
+Admins can change the brand name and upload a replacement logo from Management → Brand name and logo. For a forgotten admin password, run this on the VM from the project directory, replacing `admin` with the account name:
 
 ```sh
 docker compose exec -it app node scripts/reset-admin-password.js admin
 ```
 
-The script prompts for the new password without displaying it, hashes it, and updates that admin account in MariaDB. Sign in again with the new password.
+The script prompts for a new password without displaying it, hashes it, and updates the admin account.
 
-## Access levels
+## Barcode scanner
 
-- **Admin:** manage product categories, fish and pricing, upload fish images, set inventory in kilograms, review low and empty stock, adjust stock, generate/print barcode labels in bulk by category or date added, manage users, change their own password, and review sales with the dashboard, using Today, Week to date, Month to date, Year to date, or custom filters by category and cashier.
-- **Shop Manager:** view the sales dashboard, add and view fish products, add and view inventory, and export overall sales or sales filtered by cashier as CSV or PDF.
-- **Cashier:** Point of Sale plus a limited Management tab to add fish, view inventory, print labels, and export only their own sales as CSV or PDF. Cashiers cannot adjust stock, edit or remove products, manage categories or accounts, or open the admin dashboard. These permissions are enforced by the server.
+Most USB scanners behave like a keyboard. Focus the barcode field on checkout, scan an EAN-13 or UPC-A label, then the scanner's Enter suffix adds the matching fish. Weight is entered at checkout.
 
-Fish inventory is tracked in kilograms. Enter starting stock when adding a fish; completed sales subtract the sold weight transactionally. Existing fish receive 0 kg when the inventory migration runs, so enter their current stock in Management → Inventory. Cashier passwords must be at least 8 characters. Fish images are limited to 5 MB. MariaDB data and uploaded images use persistent Docker volumes named `fish_data` and `fish_uploads`.
+## Releases and Docker Hub
 
-## EAN-13 and UPC-A barcode scanner
-
-Most USB scanners behave like a keyboard. Focus the barcode field on checkout, scan the EAN-13 or UPC-A label, then the scanner's Enter suffix adds the matching fish. You can also click **Add** after scanning. Weight is entered at checkout.
-
-## Build and publish to Docker Hub
-
-The included GitHub Actions workflow builds the app image and publishes it to Docker Hub on pushes to `main` and version tags (`v*.*.*`). In the GitHub repository settings, add these Actions secrets:
-
-- `DOCKERHUB_USERNAME`: your Docker Hub username.
-- `DOCKERHUB_TOKEN`: a Docker Hub access token with permission to push to the repository.
-
-Create the Docker Hub repository `fish-market-pos`, push the project to GitHub's `main` branch, and create a version tag to publish a versioned image, for example:
-
-```sh
-git tag v1.0.0
-git push origin v1.0.0
-```
-
-The app service uses `mikegemai101/fish-market-pos:latest` from Docker Hub by default. Set `APP_IMAGE` in `.env` to select another tag. Pull updates with `docker compose pull app && docker compose up -d`.
+The GitHub Actions workflow publishes Docker images on pushes to `main` and semantic version tags (`v*.*.*`). Configure `DOCKERHUB_USERNAME` and `DOCKERHUB_TOKEN` in GitHub Actions secrets. For each release, create a matching GitHub tag/release and Docker Hub tag; deployments should use a versioned tag rather than `latest` so upgrades are controlled.

@@ -42,7 +42,8 @@ pool.connect=async()=>{
  const conn=await pool.getConnection();
  return {query:(sql,params=[])=>queryOn(conn,sql,params),release:()=>conn.release()};
 };
-const JWT_SECRET = process.env.JWT_SECRET || 'development-only-change-me';
+const JWT_SECRET = process.env.JWT_SECRET;
+if (!JWT_SECRET || JWT_SECRET.length < 32) throw new Error('Set JWT_SECRET to a random secret of at least 32 characters.');
 app.use(express.json({ limit: '2mb' }));
 app.use('/uploads', express.static(path.join(__dirname, 'uploads')));
 app.use(express.static(path.join(__dirname, 'public')));
@@ -92,11 +93,14 @@ async function init() {
   for(const fish of existingFish.rows){if(!validBarcode(fish.barcode,fish.barcode_type)){const barcode=await generateBarcode('EAN-13');await pool.query(`UPDATE fish SET barcode=$1,barcode_type='EAN-13' WHERE id=$2`,[barcode,fish.id]);}}
   await pool.query('ALTER TABLE sales ADD COLUMN IF NOT EXISTS cashier_name VARCHAR(100) NULL');
   await pool.query('UPDATE sales s JOIN users u ON u.id=s.cashier_id SET s.cashier_name=u.username WHERE s.cashier_name IS NULL');
-  const admin = await pool.query('SELECT id FROM users WHERE username=$1', [process.env.ADMIN_USERNAME || 'admin']);
+  const adminUsername = String(process.env.ADMIN_USERNAME || 'admin').trim();
+  const adminPassword = process.env.ADMIN_PASSWORD;
+  const admin = await pool.query('SELECT id FROM users WHERE username=$1', [adminUsername]);
   if (!admin.rowCount) {
-    const hash = await bcrypt.hash(process.env.ADMIN_PASSWORD || 'ChangeMe123!', 12);
-    await pool.query('INSERT INTO users(username,password_hash,role) VALUES($1,$2,$3)', [process.env.ADMIN_USERNAME || 'admin', hash, 'admin']);
-    console.log(`Created initial admin account: ${process.env.ADMIN_USERNAME || 'admin'}`);
+    if (!adminPassword || adminPassword.length < 12) throw new Error('Set ADMIN_PASSWORD to at least 12 characters before first startup.');
+    const hash = await bcrypt.hash(adminPassword, 12);
+    await pool.query('INSERT INTO users(username,password_hash,role) VALUES($1,$2,$3)', [adminUsername, hash, 'admin']);
+    console.log(`Created initial admin account: ${adminUsername}`);
   }
 }
 function auth(req, res, next) {

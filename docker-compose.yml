@@ -1,7 +1,21 @@
+x-logging: &default-logging
+  driver: json-file
+  options:
+    max-size: "10m"
+    max-file: "3"
+
 services:
   app:
-    image: ${APP_IMAGE:-mikegemai101/fish-market-pos:latest}
+    image: ${APP_IMAGE:-mikegemai101/fish-market-pos:1.0.3}
     restart: unless-stopped
+    read_only: true
+    security_opt:
+      - no-new-privileges:true
+    cap_drop:
+      - ALL
+    logging: *default-logging
+    tmpfs:
+      - /tmp
     environment:
       DB_HOST: db
       DB_PORT: 3306
@@ -17,9 +31,16 @@ services:
     depends_on:
       db:
         condition: service_healthy
+    healthcheck:
+      test: ["CMD", "node", "-e", "fetch('http://127.0.0.1:3000/api/health').then(r=>process.exit(r.ok?0:1)).catch(()=>process.exit(1))"]
+      interval: 20s
+      timeout: 5s
+      retries: 5
+      start_period: 30s
   db:
     image: mariadb:11.4
     restart: unless-stopped
+    logging: *default-logging
     environment:
       MARIADB_DATABASE: ${DB_NAME:-fishpos}
       MARIADB_USER: ${DB_USER:-fishpos}
@@ -33,31 +54,35 @@ services:
       timeout: 5s
       retries: 20
   phpmyadmin:
-    image: phpmyadmin:latest
+    image: phpmyadmin:5-apache
     restart: unless-stopped
+    logging: *default-logging
+    ports:
+      - "127.0.0.1:8080:80"
     environment:
       PMA_HOST: db
       PMA_PORT: 3306
-      PMA_ABSOLUTE_URI: https://${DOMAIN:-localhost}/phpmyadmin/
       UPLOAD_LIMIT: 32M
     depends_on:
       db:
         condition: service_healthy
   caddy:
-    image: caddy:latest
+    image: caddy:2-alpine
     restart: unless-stopped
+    logging: *default-logging
     ports:
       - "80:80"
       - "443:443"
+      - "443:443/udp"
     environment:
-      DOMAIN: ${DOMAIN:-localhost}
+      DOMAIN: ${DOMAIN:?Set DOMAIN in .env}
     volumes:
       - ./Caddyfile:/etc/caddy/Caddyfile:ro
       - caddy_data:/data
       - caddy_config:/config
     depends_on:
-      - app
-      - phpmyadmin
+      app:
+        condition: service_healthy
 volumes:
   fish_data:
   fish_uploads:
