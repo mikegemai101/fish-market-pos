@@ -242,12 +242,12 @@ app.post('/api/sales',auth,asyncRoute(async(req,res)=>{
 app.get('/api/sales',auth,adminOnly,asyncRoute(async(req,res)=>{
  const {rows}=await pool.query(`SELECT s.id,s.total,s.created_at,COALESCE(s.cashier_name,u.username,'Removed cashier') AS cashier FROM sales s LEFT JOIN users u ON u.id=s.cashier_id ORDER BY s.created_at DESC LIMIT 100`); for(const sale of rows){const items=await pool.query('SELECT fish_name AS name,weight_kg,line_total FROM sale_items WHERE sale_id=$1',[sale.id]);sale.items=items.rows;} res.json(rows);
 }));
-app.get('/api/dashboard/options',auth,adminOnly,asyncRoute(async(req,res)=>{
+app.get('/api/dashboard/options',auth,adminOrManager,asyncRoute(async(req,res)=>{
  const categories=await pool.query('SELECT id,name FROM categories ORDER BY name');
  const cashiers=await pool.query(`SELECT DISTINCT COALESCE(s.cashier_name,u.username,'Removed cashier') AS name FROM sales s LEFT JOIN users u ON u.id=s.cashier_id ORDER BY name`);
  res.json({categories:categories.rows,cashiers:cashiers.rows.map(r=>r.name)});
 }));
-app.get('/api/dashboard',auth,adminOnly,asyncRoute(async(req,res)=>{
+app.get('/api/dashboard',auth,adminOrManager,asyncRoute(async(req,res)=>{
  const category=req.query.category||'',cashier=String(req.query.cashier||'').trim();
  const start=String(req.query.start||''),end=String(req.query.end||'');
  const validDate=value=>!value||/^\d{4}-\d{2}-\d{2} \d{2}:\d{2}:\d{2}$/.test(value);
