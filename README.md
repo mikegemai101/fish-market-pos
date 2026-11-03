@@ -1,6 +1,6 @@
 # Fish Vendor POS
 
-Current version: **v1.0.8**. Releases use matching Git tags and Docker Hub tags.
+Current version: **v1.0.9**. Releases use matching Git tags and Docker Hub tags.
 
 A web point of sale app for fish vendors, with weight-based checkout, barcode scanning and printing, stock tracking, cashier and shop manager roles, sales dashboards, CSV/PDF reports, MariaDB, phpMyAdmin, and Caddy HTTPS.
 
@@ -43,7 +43,7 @@ The app container runs read-only except for its persistent uploads volume. Maria
 
 ### Automatic deployments
 
-Pushes to `main` publish `latest`, the version in `package.json` (currently `1.0.8`), and a matching GitHub Release with generated release notes. Increment the package version before each change pushed to `main` so every update gets its own versioned image and release. The workflow deploys that exact tag to the VM when deployment settings are configured. Add these GitHub Actions repository variables:
+Pushes to `main` publish `latest`, the version in `package.json` (currently `1.0.9`), and a matching GitHub Release with generated release notes. Increment the package version before each change pushed to `main` so every update gets its own versioned image and release. The workflow deploys that exact tag to the VM when deployment settings are configured. Add these GitHub Actions repository variables:
 
 - `DEPLOY_HOST`: VM hostname or IP address.
 - `DEPLOY_USER`: SSH user with permission to run Docker Compose.
@@ -103,6 +103,8 @@ Protect backup files like passwords: they contain business and possibly customer
 - **Cashier:** Point of Sale and limited Management access to view fish and inventory, print labels, and export their own sales. Cashiers cannot adjust stock, edit or remove products, manage categories or accounts, or view the dashboard. These permissions are enforced server-side.
 
 Fish inventory uses kilograms. Each completed sale deducts sold weight transactionally. Fish images are limited to 5 MB. Brand settings, database data, and uploaded images are persisted in Docker volumes.
+
+Admins can reset cashier and shop manager passwords from Management → Team accounts → Reset password. Enter and confirm a new password with at least 8 characters (maximum 72 UTF-8 bytes).
 
 Admins can change the brand name and upload a replacement logo from Management → Brand name and logo. For a forgotten admin password, run this on the VM from the project directory, replacing `admin` with the account name:
 

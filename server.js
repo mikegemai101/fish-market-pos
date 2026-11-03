@@ -221,6 +221,19 @@ app.post('/api/users',auth,adminOnly,asyncRoute(async(req,res)=>{
  try{const hash=await bcrypt.hash(password,12);const {rows}=await pool.query('INSERT INTO users(username,password_hash,role) VALUES($1,$2,$3) RETURNING id,username,role,active',[username,hash,role]);res.status(201).json(rows[0]);}
  catch(e){if(e.code==='ER_DUP_ENTRY') return res.status(409).json({error:'That username is already in use.'});throw e;}
 }));
+app.post('/api/users/:id/password',auth,adminOnly,asyncRoute(async(req,res)=>{
+ const password=req.body?.new_password;
+ if(typeof password!=='string'||password.length<8||Buffer.byteLength(password,'utf8')>72)return res.status(400).json({error:'Password must contain at least 8 characters and at most 72 UTF-8 bytes.'});
+ const actor=await pool.query('SELECT id FROM users WHERE id=$1 AND role=$2 AND active=true',[req.user.id,'admin']);
+ if(!actor.rows[0])return res.status(403).json({error:'Active admin access required.'});
+ const {rows}=await pool.query('SELECT id,role FROM users WHERE id=$1',[req.params.id]);
+ if(!rows[0])return res.status(404).json({error:'User not found.'});
+ if(!['cashier','shop_manager'].includes(rows[0].role))return res.status(403).json({error:'Only cashier and shop manager passwords can be reset here.'});
+ const hash=await bcrypt.hash(password,12);
+ const result=await pool.query("UPDATE users SET password_hash=$1 WHERE id=$2 AND role IN ('cashier','shop_manager')",[hash,req.params.id]);
+ if(!result.rowCount)return res.status(409).json({error:'Account changed. Refresh the account list and try again.'});
+ res.json({ok:true});
+}));
 app.patch('/api/users/:id',auth,adminOnly,asyncRoute(async(req,res)=>{
  if(Number(req.params.id)===req.user.id && req.body.active===false) return res.status(400).json({error:'You cannot deactivate your own account.'});
  const {rows}=await pool.query('UPDATE users SET active=COALESCE($1,active), role=COALESCE($2,role) WHERE id=$3 RETURNING id,username,role,active',[req.body.active===undefined?null:!!req.body.active, ['admin','cashier','shop_manager'].includes(req.body.role)?req.body.role:null,req.params.id]); if(!rows[0]) return res.status(404).json({error:'User not found.'});res.json(rows[0]);
