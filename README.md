@@ -1,4 +1,4 @@
-# My.Co Enterprises — Fish Vendor POS
+# Fish Vendor POS
 
 Current version: **v1.0.1**. Releases use matching Git tags and Docker Hub tags.
 
