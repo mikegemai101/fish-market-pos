@@ -1,5 +1,5 @@
 FROM node:22-alpine
-ARG APP_VERSION=1.0.7
+ARG APP_VERSION=1.0.8
 WORKDIR /app
 COPY package*.json ./
 RUN npm install --omit=dev

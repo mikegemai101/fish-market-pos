@@ -1,6 +1,6 @@
 # Fish Vendor POS
 
-Current version: **v1.0.7**. Releases use matching Git tags and Docker Hub tags.
+Current version: **v1.0.8**. Releases use matching Git tags and Docker Hub tags.
 
 A web point of sale app for fish vendors, with weight-based checkout, barcode scanning and printing, stock tracking, cashier and shop manager roles, sales dashboards, CSV/PDF reports, MariaDB, phpMyAdmin, and Caddy HTTPS.
 
@@ -43,7 +43,7 @@ The app container runs read-only except for its persistent uploads volume. Maria
 
 ### Automatic deployments
 
-Pushes to `main` publish `latest` and the version in `package.json` (currently `1.0.7`). Increment the package version before each change pushed to `main` so every update gets its own versioned image. The workflow deploys that exact tag to the VM when deployment settings are configured. Add these GitHub Actions repository variables:
+Pushes to `main` publish `latest` and the version in `package.json` (currently `1.0.8`). Increment the package version before each change pushed to `main` so every update gets its own versioned image. The workflow deploys that exact tag to the VM when deployment settings are configured. Add these GitHub Actions repository variables:
 
 - `DEPLOY_HOST`: VM hostname or IP address.
 - `DEPLOY_USER`: SSH user with permission to run Docker Compose.
