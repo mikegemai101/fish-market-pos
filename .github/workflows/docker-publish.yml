@@ -24,8 +24,7 @@ jobs:
           if [[ "$GITHUB_REF" == refs/tags/v* ]]; then
             image_tag="${GITHUB_REF_NAME#v}"
           else
-            package_version="$(node -p "require('./package.json').version")"
-            image_tag="${package_version}-build.${GITHUB_RUN_NUMBER}"
+            image_tag="$(node -p "require('./package.json').version")"
           fi
           echo "image_tag=$image_tag" >> "$GITHUB_OUTPUT"
       - name: Set up Docker Buildx
