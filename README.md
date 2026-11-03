@@ -1,0 +1,51 @@
+# My.Co Enterprises — Fish Vendor POS
+
+A small point of sale app for a fish counter. Cashiers can scan a barcode or select a fish, enter its weight in kilograms, and complete a sale. Admins manage fish names, categories, photos, per-kilogram pricing, barcode labels, users, and recent sales. Cashiers can filter the checkout catalog by category while the sale basket stays in view. The header clock always uses GMT+8.
+
+## Run with Docker Compose
+
+1. Copy `.env.example` to `.env` and replace every placeholder with strong, unique values. Keep `.env` private; it is excluded from Git and the Docker build context.
+2. Set `DOMAIN` to a hostname that points to this server. For local-only use, set `DOMAIN=localhost`.
+3. Start the services:
+
+   ```sh
+   docker compose up -d --build
+   ```
+
+4. Open `https://your-domain` to use the POS and `https://your-domain/phpmyadmin/` to administer MariaDB. Sign in to phpMyAdmin with `DB_USER` and `DB_PASSWORD` from `.env` for the app database, or with `root` and `DB_ROOT_PASSWORD` for full database administration.
+5. Sign in to the POS with `ADMIN_USERNAME` and `ADMIN_PASSWORD` from `.env`.
+
+Caddy obtains public HTTPS certificates when the domain resolves to this server and ports 80/443 are reachable. Its local certificate for `localhost` may require trusting Caddy's local CA in your browser. MariaDB and phpMyAdmin do not publish host ports; both are reached through the internal Docker network and phpMyAdmin is reverse proxied by Caddy.
+
+The initial admin account is created when the database is first initialized. Set its credentials before first startup. Changing `ADMIN_PASSWORD` later does not reset an existing account. MariaDB's named volume is also initialized only once: changing DB passwords in `.env` after startup does not rotate credentials stored in the existing database.
+
+## Access levels
+
+- **Admin:** manage product categories, fish and pricing, upload fish images, generate/print barcode labels in bulk by category or date added, manage users, and review sales.
+- **Cashier:** checkout plus a limited Management tab to add fish, print labels, and export filtered sales as CSV or PDF. Cashiers cannot edit or remove products, manage categories or accounts, or open the admin dashboard. These permissions are enforced by the server.
+
+Cashier passwords must be at least 8 characters. Fish images are limited to 5 MB. MariaDB data and uploaded images use persistent Docker volumes named `fish_data` and `fish_uploads`.
+
+## EAN-13 and UPC-A barcode scanner
+
+Most USB scanners behave like a keyboard. Focus the barcode field on checkout, scan the EAN-13 or UPC-A label, then the scanner's Enter suffix adds the matching fish. You can also click **Add** after scanning. Weight is entered at checkout.
+
+## Build and publish to Docker Hub
+
+The included GitHub Actions workflow builds the app image and publishes it to Docker Hub on pushes to `main` and version tags (`v*.*.*`). In the GitHub repository settings, add these Actions secrets:
+
+- `DOCKERHUB_USERNAME`: your Docker Hub username.
+- `DOCKERHUB_TOKEN`: a Docker Hub access token with permission to push to the repository.
+
+Create the Docker Hub repository `fish-market-pos`, push the project to GitHub's `main` branch, and create a version tag to publish a versioned image, for example:
+
+```sh
+git tag v1.0.0
+git push origin v1.0.0
+```
+
+For deployment from Docker Hub, set `APP_IMAGE=yourdockerhubname/fish-market-pos:latest` in `.env` and use `docker compose pull app && docker compose up -d --no-build`.
+
+## Project prompt
+
+See [PROMPT.md](PROMPT.md) for the reusable project brief.

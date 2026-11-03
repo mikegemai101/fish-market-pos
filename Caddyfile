@@ -1,0 +1,13 @@
+{$DOMAIN:localhost} {
+  encode gzip zstd
+
+  handle_path /phpmyadmin/* {
+    reverse_proxy phpmyadmin:80
+  }
+  handle /phpmyadmin {
+    redir /phpmyadmin/ 308
+  }
+  handle {
+    reverse_proxy app:3000
+  }
+}

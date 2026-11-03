@@ -1,0 +1,19 @@
+{
+  "name": "fish-market-pos",
+  "version": "1.0.0",
+  "private": true,
+  "description": "Fish vendor point of sale",
+  "main": "server.js",
+  "scripts": {
+    "start": "node server.js"
+  },
+  "dependencies": {
+    "bcryptjs": "^2.4.3",
+    "bwip-js": "^4.5.1",
+    "express": "^4.21.2",
+    "jsonwebtoken": "^9.0.2",
+    "multer": "^1.4.5-lts.1",
+    "mysql2": "^3.14.0",
+    "pdfkit": "^0.16.0"
+  }
+}
