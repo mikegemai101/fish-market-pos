@@ -151,6 +151,12 @@ app.get('/api/fish/barcode/:code', auth, asyncRoute(async (req,res) => {
 app.post('/api/fish', auth, adminOrCashier, upload.single('image'), asyncRoute(async (req,res) => {
   const name=String(req.body.name||'').trim(), price=Number(req.body.price_per_kg), stock=Number(req.body.stock_kg||0), categoryId=req.body.category_id?Number(req.body.category_id):null, barcodeType=String(req.body.barcode_type||'EAN-13');
   if (!name || !Number.isFinite(price) || price < 0 || !Number.isFinite(stock) || stock < 0 || stock > 1000000) return res.status(400).json({error:'Enter a fish name, valid price, and inventory quantity from 0 to 1,000,000 kg.'});
+  const existing=await pool.query('SELECT id,name,stock_kg FROM fish WHERE LOWER(TRIM(name))=LOWER(TRIM($1)) AND active=true ORDER BY id LIMIT 1',[name]);
+  if(existing.rows[0]){
+    if(stock<=0)return res.status(400).json({error:`${existing.rows[0].name} already exists. Enter a stock quantity greater than 0 kg to add inventory.`});
+    const {rows}=await pool.query('UPDATE fish SET stock_kg=stock_kg+$1 WHERE id=$2 RETURNING id,name,stock_kg',[stock,existing.rows[0].id]);
+    return res.status(200).json({...rows[0],existing:true});
+  }
   let barcode=String(req.body.barcode||'').trim();
   if(!['EAN-13','UPC-A'].includes(barcodeType))return res.status(400).json({error:'Choose EAN-13 or UPC-A.'});
   if(!barcode)barcode=await generateBarcode(barcodeType);
