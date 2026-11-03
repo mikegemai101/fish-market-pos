@@ -6,7 +6,7 @@ x-logging: &default-logging
 
 services:
   app:
-    image: ${APP_IMAGE:-mikegemai101/fish-market-pos:1.0.6}
+    image: mikegemai101/fish-market-pos:latest
     restart: unless-stopped
     read_only: true
     security_opt:
@@ -54,7 +54,7 @@ services:
       timeout: 5s
       retries: 20
   phpmyadmin:
-    image: phpmyadmin:5-apache
+    image: phpmyadmin:latest
     restart: unless-stopped
     logging: *default-logging
     ports:
@@ -67,7 +67,7 @@ services:
       db:
         condition: service_healthy
   caddy:
-    image: caddy:2-alpine
+    image: caddy:latest
     restart: unless-stopped
     logging: *default-logging
     ports:
