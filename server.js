@@ -163,7 +163,7 @@ app.get('/api/fish/barcode/:code', auth, asyncRoute(async (req,res) => {
   const { rows } = await pool.query('SELECT id,name,price_per_kg,barcode,image_path FROM fish WHERE barcode=$1 AND active=true',[req.params.code]);
   if (!rows[0]) return res.status(404).json({error:'No fish found for that barcode.'}); res.json(rows[0]);
 }));
-app.post('/api/fish', auth, adminOrCashier, upload.single('image'), asyncRoute(async (req,res) => {
+app.post('/api/fish', auth, adminOrManager, upload.single('image'), asyncRoute(async (req,res) => {
   const name=String(req.body.name||'').trim(), price=Number(req.body.price_per_kg), stock=Number(req.body.stock_kg||0), categoryId=req.body.category_id?Number(req.body.category_id):null, barcodeType=String(req.body.barcode_type||'EAN-13');
   if (!name || !Number.isFinite(price) || price < 0 || !Number.isFinite(stock) || stock < 0 || stock > 1000000) return res.status(400).json({error:'Enter a fish name, valid price, and inventory quantity from 0 to 1,000,000 kg.'});
   const existing=await pool.query('SELECT id,name,stock_kg FROM fish WHERE LOWER(TRIM(name))=LOWER(TRIM($1)) AND active=true ORDER BY id LIMIT 1',[name]);

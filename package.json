@@ -1,6 +1,6 @@
 {
   "name": "fish-market-pos",
-  "version": "1.0.3",
+  "version": "1.0.4",
   "private": true,
   "description": "Fish vendor point of sale",
   "main": "server.js",
