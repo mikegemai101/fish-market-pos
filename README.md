@@ -1,6 +1,6 @@
 # Fish Vendor POS
 
-Current version: **v1.0.5**. Releases use matching Git tags and Docker Hub tags.
+Current version: **v1.0.6**. Releases use matching Git tags and Docker Hub tags.
 
 A web point of sale app for fish vendors, with weight-based checkout, barcode scanning and printing, stock tracking, cashier and shop manager roles, sales dashboards, CSV/PDF reports, MariaDB, phpMyAdmin, and Caddy HTTPS.
 
