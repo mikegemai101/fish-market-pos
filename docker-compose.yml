@@ -1,9 +1,6 @@
 services:
   app:
-    image: ${APP_IMAGE:-fish-market-pos:local}
-    build:
-      context: .
-      dockerfile: Dockerfile
+    image: ${APP_IMAGE:-mikegemai101/fish-market-pos:latest}
     restart: unless-stopped
     environment:
       DB_HOST: db

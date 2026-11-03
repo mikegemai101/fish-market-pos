@@ -1,6 +1,6 @@
 # My.Co Enterprises — Fish Vendor POS
 
-A small point of sale app for a fish counter. Cashiers can scan a barcode or select a fish, enter its weight in kilograms, and complete a sale. Admins manage fish names, categories, photos, per-kilogram pricing, barcode labels, users, and recent sales. Cashiers can filter the checkout catalog by category while the sale basket stays in view. The header clock always uses GMT+8.
+A small point of sale app for a fish counter. Cashiers can scan a barcode or select a fish, enter its weight in kilograms, and complete a sale. Admins manage fish names, categories, photos, per-kilogram pricing, barcode labels, inventory in kilograms, users, and recent sales. Cashiers can filter the checkout catalog by category while the sale basket stays in view. The header clock always uses GMT+8.
 
 ## Run with Docker Compose
 
@@ -9,7 +9,8 @@ A small point of sale app for a fish counter. Cashiers can scan a barcode or sel
 3. Start the services:
 
    ```sh
-   docker compose up -d --build
+   docker compose pull app
+   docker compose up -d
    ```
 
 4. Open `https://your-domain` to use the POS and `https://your-domain/phpmyadmin/` to administer MariaDB. Sign in to phpMyAdmin with `DB_USER` and `DB_PASSWORD` from `.env` for the app database, or with `root` and `DB_ROOT_PASSWORD` for full database administration.
@@ -19,12 +20,20 @@ Caddy obtains public HTTPS certificates when the domain resolves to this server 
 
 The initial admin account is created when the database is first initialized. Set its credentials before first startup. Changing `ADMIN_PASSWORD` later does not reset an existing account. MariaDB's named volume is also initialized only once: changing DB passwords in `.env` after startup does not rotate credentials stored in the existing database.
 
+Admins can change their own password from Management → Admin account. If the admin password is forgotten, run this on the server from the project directory (replace `admin` with the admin username):
+
+```sh
+docker compose exec -it app node scripts/reset-admin-password.js admin
+```
+
+The script prompts for the new password without displaying it, hashes it, and updates that admin account in MariaDB. Sign in again with the new password.
+
 ## Access levels
 
-- **Admin:** manage product categories, fish and pricing, upload fish images, generate/print barcode labels in bulk by category or date added, manage users, and review sales.
+- **Admin:** manage product categories, fish and pricing, upload fish images, set inventory in kilograms, review low and empty stock, adjust stock, generate/print barcode labels in bulk by category or date added, manage users, change their own password, and review sales.
 - **Cashier:** checkout plus a limited Management tab to add fish, print labels, and export filtered sales as CSV or PDF. Cashiers cannot edit or remove products, manage categories or accounts, or open the admin dashboard. These permissions are enforced by the server.
 
-Cashier passwords must be at least 8 characters. Fish images are limited to 5 MB. MariaDB data and uploaded images use persistent Docker volumes named `fish_data` and `fish_uploads`.
+Fish inventory is tracked in kilograms. Enter starting stock when adding a fish; completed sales subtract the sold weight transactionally. Existing fish receive 0 kg when the inventory migration runs, so enter their current stock in Management → Inventory. Cashier passwords must be at least 8 characters. Fish images are limited to 5 MB. MariaDB data and uploaded images use persistent Docker volumes named `fish_data` and `fish_uploads`.
 
 ## EAN-13 and UPC-A barcode scanner
 
@@ -44,7 +53,7 @@ git tag v1.0.0
 git push origin v1.0.0
 ```
 
-For deployment from Docker Hub, set `APP_IMAGE=yourdockerhubname/fish-market-pos:latest` in `.env` and use `docker compose pull app && docker compose up -d --no-build`.
+The app service uses `mikegemai101/fish-market-pos:latest` from Docker Hub by default. Set `APP_IMAGE` in `.env` to select another tag. Pull updates with `docker compose pull app && docker compose up -d`.
 
 ## Project prompt
 

@@ -3,6 +3,7 @@ WORKDIR /app
 COPY package*.json ./
 RUN npm install --omit=dev
 COPY server.js ./
+COPY scripts ./scripts
 COPY public ./public
 RUN mkdir -p /app/uploads && chown -R node:node /app
 USER node

@@ -77,12 +77,13 @@ async function init() {
   const schema = [
     `CREATE TABLE IF NOT EXISTS users (id INT AUTO_INCREMENT PRIMARY KEY, username VARCHAR(100) UNIQUE NOT NULL, password_hash VARCHAR(255) NOT NULL, role VARCHAR(20) NOT NULL, active TINYINT(1) NOT NULL DEFAULT 1, created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP) ENGINE=InnoDB`,
     `CREATE TABLE IF NOT EXISTS categories (id INT AUTO_INCREMENT PRIMARY KEY, name VARCHAR(100) UNIQUE NOT NULL, created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP) ENGINE=InnoDB`,
-    `CREATE TABLE IF NOT EXISTS fish (id INT AUTO_INCREMENT PRIMARY KEY, name VARCHAR(160) NOT NULL, category_id INT NULL, price_per_kg DECIMAL(12,2) NOT NULL, barcode VARCHAR(80) UNIQUE NOT NULL, image_path VARCHAR(500), active TINYINT(1) NOT NULL DEFAULT 1, created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP) ENGINE=InnoDB`,
+    `CREATE TABLE IF NOT EXISTS fish (id INT AUTO_INCREMENT PRIMARY KEY, name VARCHAR(160) NOT NULL, category_id INT NULL, price_per_kg DECIMAL(12,2) NOT NULL, stock_kg DECIMAL(12,3) NOT NULL DEFAULT 0, barcode VARCHAR(80) UNIQUE NOT NULL, image_path VARCHAR(500), active TINYINT(1) NOT NULL DEFAULT 1, created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP) ENGINE=InnoDB`,
     `CREATE TABLE IF NOT EXISTS sales (id INT AUTO_INCREMENT PRIMARY KEY, cashier_id INT, cashier_name VARCHAR(100), total DECIMAL(12,2) NOT NULL, payment_method VARCHAR(20) NOT NULL DEFAULT 'cash', created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP, FOREIGN KEY (cashier_id) REFERENCES users(id)) ENGINE=InnoDB`,
     `CREATE TABLE IF NOT EXISTS sale_items (id INT AUTO_INCREMENT PRIMARY KEY, sale_id INT NOT NULL, fish_id INT, fish_name VARCHAR(160) NOT NULL, weight_kg DECIMAL(10,3) NOT NULL, price_per_kg DECIMAL(12,2) NOT NULL, line_total DECIMAL(12,2) NOT NULL, FOREIGN KEY (sale_id) REFERENCES sales(id) ON DELETE CASCADE, FOREIGN KEY (fish_id) REFERENCES fish(id)) ENGINE=InnoDB`
   ];
   for (const statement of schema) await pool.query(statement);
   await pool.query('ALTER TABLE fish ADD COLUMN IF NOT EXISTS category_id INT NULL');
+  await pool.query('ALTER TABLE fish ADD COLUMN IF NOT EXISTS stock_kg DECIMAL(12,3) NOT NULL DEFAULT 0');
   await pool.query(`ALTER TABLE fish ADD COLUMN IF NOT EXISTS barcode_type VARCHAR(10) NOT NULL DEFAULT 'EAN-13'`);
   for (const name of ['Fresh Fish','Shellfish','Dried Fish','Other']) await pool.query('INSERT IGNORE INTO categories(name) VALUES($1)',[name]);
   const existingFish=await pool.query('SELECT id,barcode,barcode_type FROM fish');
@@ -114,6 +115,14 @@ app.post('/api/login', asyncRoute(async (req, res) => {
   res.json({ token: jwt.sign(user, JWT_SECRET, { expiresIn:'12h' }), user });
 }));
 app.get('/api/me', auth, (req,res) => res.json({ user:req.user }));
+app.post('/api/me/password',auth,adminOnly,asyncRoute(async(req,res)=>{
+ const current=String(req.body.current_password||''),next=String(req.body.new_password||'');
+ if(next.length<8)return res.status(400).json({error:'New password must be at least 8 characters.'});
+ if(current===next)return res.status(400).json({error:'Choose a new password different from the current one.'});
+ const {rows}=await pool.query('SELECT password_hash FROM users WHERE id=$1 AND active=true',[req.user.id]);
+ if(!rows[0]||!(await bcrypt.compare(current,rows[0].password_hash)))return res.status(400).json({error:'Current password is incorrect.'});
+ const hash=await bcrypt.hash(next,12);await pool.query('UPDATE users SET password_hash=$1 WHERE id=$2',[hash,req.user.id]);res.json({ok:true});
+}));
 app.get('/api/categories', auth, asyncRoute(async (req,res) => {
   const {rows}=await pool.query('SELECT id,name FROM categories ORDER BY name');res.json(rows);
 }));
@@ -131,21 +140,23 @@ app.delete('/api/categories/:id',auth,adminOnly,asyncRoute(async(req,res)=>{
  const client=await pool.connect();try{await client.query('BEGIN');const found=await client.query('SELECT id FROM categories WHERE id=$1',[req.params.id]);if(!found.rows[0]){await client.query('ROLLBACK');return res.status(404).json({error:'Category not found.'});}await client.query('UPDATE fish SET category_id=NULL WHERE category_id=$1',[req.params.id]);await client.query('DELETE FROM categories WHERE id=$1',[req.params.id]);await client.query('COMMIT');res.json({ok:true});}catch(e){await client.query('ROLLBACK');throw e;}finally{client.release();}
 }));
 app.get('/api/fish', auth, asyncRoute(async (req,res) => {
-  const { rows } = await pool.query('SELECT f.id,f.name,f.category_id,c.name AS category_name,f.price_per_kg,f.barcode,f.barcode_type,f.image_path,f.active,f.created_at FROM fish f LEFT JOIN categories c ON c.id=f.category_id WHERE f.active=true ORDER BY f.name'); res.json(rows);
+  const { rows } = await pool.query('SELECT f.id,f.name,f.category_id,c.name AS category_name,f.price_per_kg,f.stock_kg,f.barcode,f.barcode_type,f.image_path,f.active,f.created_at FROM fish f LEFT JOIN categories c ON c.id=f.category_id WHERE f.active=true ORDER BY f.name'); res.json(rows);
 }));
+app.get('/api/inventory',auth,adminOnly,asyncRoute(async(req,res)=>{const {rows}=await pool.query('SELECT f.id,f.name,f.stock_kg,f.price_per_kg,c.name AS category_name FROM fish f LEFT JOIN categories c ON c.id=f.category_id WHERE f.active=true ORDER BY f.name');res.json(rows);}));
+app.patch('/api/inventory/:id',auth,adminOnly,asyncRoute(async(req,res)=>{const stock=Number(req.body.stock_kg);if(!Number.isFinite(stock)||stock<0||stock>1000000)return res.status(400).json({error:'Enter a valid inventory quantity from 0 to 1,000,000 kg.'});const {rows}=await pool.query('UPDATE fish SET stock_kg=$1 WHERE id=$2 AND active=true RETURNING id,name,stock_kg',[stock,req.params.id]);if(!rows[0])return res.status(404).json({error:'Active fish product not found.'});res.json(rows[0]);}));
 app.get('/api/fish/barcode/:code', auth, asyncRoute(async (req,res) => {
   const { rows } = await pool.query('SELECT id,name,price_per_kg,barcode,image_path FROM fish WHERE barcode=$1 AND active=true',[req.params.code]);
   if (!rows[0]) return res.status(404).json({error:'No fish found for that barcode.'}); res.json(rows[0]);
 }));
 app.post('/api/fish', auth, adminOrCashier, upload.single('image'), asyncRoute(async (req,res) => {
-  const name=String(req.body.name||'').trim(), price=Number(req.body.price_per_kg), categoryId=req.body.category_id?Number(req.body.category_id):null, barcodeType=String(req.body.barcode_type||'EAN-13');
-  if (!name || !Number.isFinite(price) || price < 0) return res.status(400).json({error:'Enter a fish name and a valid price per kilogram.'});
+  const name=String(req.body.name||'').trim(), price=Number(req.body.price_per_kg), stock=Number(req.body.stock_kg||0), categoryId=req.body.category_id?Number(req.body.category_id):null, barcodeType=String(req.body.barcode_type||'EAN-13');
+  if (!name || !Number.isFinite(price) || price < 0 || !Number.isFinite(stock) || stock < 0 || stock > 1000000) return res.status(400).json({error:'Enter a fish name, valid price, and inventory quantity from 0 to 1,000,000 kg.'});
   let barcode=String(req.body.barcode||'').trim();
   if(!['EAN-13','UPC-A'].includes(barcodeType))return res.status(400).json({error:'Choose EAN-13 or UPC-A.'});
   if(!barcode)barcode=await generateBarcode(barcodeType);
   if(!validBarcode(barcode,barcodeType))return res.status(400).json({error:`Enter a valid ${barcodeType} number with a correct check digit, or leave it blank to generate one.`});
   const image=req.file ? `/uploads/${req.file.filename}` : null;
-  try { const {rows}=await pool.query('INSERT INTO fish(name,category_id,price_per_kg,barcode,barcode_type,image_path) VALUES($1,$2,$3,$4,$5,$6) RETURNING *',[name,categoryId,price,barcode,barcodeType,image]); res.status(201).json(rows[0]); }
+  try { const {rows}=await pool.query('INSERT INTO fish(name,category_id,price_per_kg,stock_kg,barcode,barcode_type,image_path) VALUES($1,$2,$3,$4,$5,$6,$7) RETURNING *',[name,categoryId,price,stock,barcode,barcodeType,image]); res.status(201).json(rows[0]); }
   catch(e) { if(e.code==='ER_DUP_ENTRY') return res.status(409).json({error:'That barcode is already assigned.'}); throw e; }
 }));
 app.put('/api/fish/:id', auth, adminOnly, upload.single('image'), asyncRoute(async (req,res) => {
@@ -210,9 +221,10 @@ app.post('/api/sales',auth,asyncRoute(async(req,res)=>{
  const client=await pool.connect();
  try{
   await client.query('BEGIN'); let total=0; const prepared=[];
-  for(const line of lines){const weight=Number(line.weight_kg), {rows}=await client.query('SELECT id,name,price_per_kg FROM fish WHERE id=$1 AND active=true',[line.fish_id]);
+  for(const line of lines){const weight=Number(line.weight_kg), {rows}=await client.query('SELECT id,name,price_per_kg,stock_kg FROM fish WHERE id=$1 AND active=true FOR UPDATE',[line.fish_id]);
    if(!rows[0]||!Number.isFinite(weight)||weight<=0||weight>1000) throw new Error('Check each fish and its weight (greater than 0 kg).');
-   const f=rows[0], amount=Math.round(Number(f.price_per_kg)*weight*100)/100; total+=amount; prepared.push({fish:f,weight,amount});
+   const f=rows[0];if(Number(f.stock_kg)<weight)throw new Error(`${f.name}: only ${Number(f.stock_kg).toFixed(3)} kg remains in inventory.`);await client.query('UPDATE fish SET stock_kg=stock_kg-$1 WHERE id=$2',[weight,f.id]);
+   const amount=Math.round(Number(f.price_per_kg)*weight*100)/100; total+=amount; prepared.push({fish:f,weight,amount});
   }
   total=Math.round(total*100)/100; const sale=await client.query('INSERT INTO sales(cashier_id,cashier_name,total,payment_method) VALUES($1,$2,$3,$4) RETURNING id,created_at,total',[req.user.id,req.user.username,total,'cash']);
   for(const p of prepared) await client.query('INSERT INTO sale_items(sale_id,fish_id,fish_name,weight_kg,price_per_kg,line_total) VALUES($1,$2,$3,$4,$5,$6)',[sale.rows[0].id,p.fish.id,p.fish.name,p.weight,p.fish.price_per_kg,p.amount]);
